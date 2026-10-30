@@ -84,7 +84,30 @@ jobs:
         run: |
           cp ../broker_config.tf ./ 
           terraform init
+          PROVIDER_BIN=$(find .terraform/providers/registry.terraform.io/solaceproducts/solacebroker \
+            -type f -name 'terraform-provider-solacebroker_v*' | sort -V | tail -n 1)
+
+          echo "$PROVIDER_BIN"
+          if [ -z "$PROVIDER_BIN" ]; then
+            echo "Provider binary not found' first" >&2
+            exit 1
+          fi
+
+          "$PROVIDER_BIN" generate \
+            --url="$SEMP_URL" \
+            --username="$SEMP_USERNAME" \
+            --password="$SEMP_PASSWORD" \
+            solacebroker_msg_vpn.sandbox sandbox sandbox.tf          
+            
         working-directory: ./terraform  # your Terraform directory
+        env:
+          # Add your broker credentials as secrets
+          TF_VAR_url: ${{ secrets.BROKER_URL }}
+          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}       
+          SEMP_URL: ${{ secrets.BROKER_URL }}
+          SEMP_USERNAME: ${{ secrets.BROKER_USERNAME }}
+          SEMP_PASSWORD: ${{ secrets.BROKER_PASSWORD }}           
 
       - name: Generate Terraform Plan
         run:  |
