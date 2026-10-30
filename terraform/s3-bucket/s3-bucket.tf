@@ -9,7 +9,8 @@ terraform {
 }
 
 provider "aws" {
-  region = "ca-central-1"
+  region = "us-east-1"
+  profile = "AdministratorAccess-740994956024"
 }
 
 resource "aws_s3_bucket" "tf_state" {
