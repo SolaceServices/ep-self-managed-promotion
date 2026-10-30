@@ -70,7 +70,7 @@ jobs:
               echo "${value}"
               echo "EOF_${key}"
             } >> "$GITHUB_ENV"
-          done < <(jq -r '.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
+          done < <(jq -r 'data.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
 
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
           echo "$HCL" >> broker_config.tf            
