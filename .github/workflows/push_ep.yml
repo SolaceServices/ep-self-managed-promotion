@@ -1,24 +1,52 @@
 name: Event Portal Self-Managed Config Push
+run-name: Deploy to ${{ inputs.deploy_target }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: "The environment to deploy the application to"
+        required: true
+        default: "development"
+        type: choice
+        options:
+          - development
+          - test
+          - production
+      # TODO: check for application version
       application_name:
         description: 'Application name in Event Portal'
         required: true
+        type: string
+      #application_domain_name:
+      #  description: 'Application Domain Name'
+      #  required: false
+      #  default: 'ajcr-Human Capital Management Events'
+      #  type: string
       application_domain_id:
         description: 'Application Domain ID'
         required: true
 
 env:
+  # the name of the environment you will deploy to, defaulting to test
+  ENV_NAME: ${{ inputs.environment || 'development'}}
+  APP_NAME: ${{ inputs.application_name }}
+  AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
   SOLACE_CLOUD_API_BASE: https://api.solace.cloud/api/v2/architecture
   SOLACE_CLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
 
 jobs:
   deploy-event-portal-config:
     runs-on: ubuntu-latest
+    # This maps to the Environments tab in the GitHub UI
+    # and scopes secrets and variables to that environment
+    environment: ${{ inputs.environment || 'development' }}
 
     steps:
+      - name: Deploy to ${{ env.ENV_NAME }} environment
+        run: |
+          echo "Deploying EP application: ${{ env.APP_NAME }} to $ENV_NAME"
+
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
@@ -73,8 +101,8 @@ jobs:
           done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
 
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
-          echo "$HCL" >> broker_config.tf            
-          cat -n broker_config.tf
+          echo "$HCL" >> application_config.tf            
+          cat -n application_config.tf
 
       - name: Show GITHUB_ENV
         run: cat "$GITHUB_ENV"
@@ -82,37 +110,26 @@ jobs:
       # --- Step 4: Apply Terraform Configuration ---
       - name: Terraform Init
         run: |
-          cp ../broker_config.tf ./ 
-          terraform init
-          #PROVIDER_BIN=$(find .terraform/providers/registry.terraform.io/solaceproducts/solacebroker \
-          #  -type f -name 'terraform-provider-solacebroker_v*' | sort -V | tail -n 1)
-          #
-          #echo "$PROVIDER_BIN"
-          #if [ -z "$PROVIDER_BIN" ]; then
-          #  echo "Provider binary not found' first" >&2
-          #  exit 1
-          #fi
+          cp ../application_config.tf ./ 
 
-          #"$PROVIDER_BIN" generate \
-          #  --url="$SEMP_URL" \
-          #  --username="$SEMP_USERNAME" \
-          #  --password="$SEMP_PASSWORD" \
-          #  solacebroker_msg_vpn.sandbox sandbox sandbox.tf          
-            
+          terraform init \
+            -backend-config="bucket=$AWS_BUCKET_NAME" \
+            -backend-config="key=solace/{{ env.ENV_NAME }}/${{ env.APP_NAME }}/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION"
+
         working-directory: ./terraform  # your Terraform directory
         env:
           # Add your broker credentials as secrets
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
           TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
           TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}       
-          SEMP_URL: ${{ secrets.BROKER_URL }}
-          SEMP_USERNAME: ${{ secrets.BROKER_USERNAME }}
-          SEMP_PASSWORD: ${{ secrets.BROKER_PASSWORD }}           
+
 
       - name: Generate Terraform Plan
         run:  |
-          # terraform plan -refresh-only -input=false
-          # terraform plan -minimal-refresh -input=false -out=tfplan 
+          terraform plan -input=false -out=tfplan 
           ls -las
         working-directory: ./terraform
         env:
@@ -128,8 +145,8 @@ jobs:
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
-          # terraform apply -refresh-only -input=false -auto-approve
-          terraform apply -input=false -auto-approve
+  
+           terraform apply -input=false -auto-approve tfplan
         working-directory: ./terraform
         env:
           # Add your broker credentials as secrets
