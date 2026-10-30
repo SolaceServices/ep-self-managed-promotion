@@ -54,11 +54,14 @@ jobs:
       - name: Fetch Terraform HCL Config
         id: fetch_config
         run: |
-          curl -s -X GET \
-            "https://api.solace.dev/api/v2/applicationConfigurationPushJobs/${{ steps.get_job_id.outputs.job_id }}/runtimeConfigurations" \
+          RESPONSE=$(curl -s -X GET \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applicationConfigurationPushJobs/${{ steps.get_job_id.outputs.job_id }}/decryptedConfigurations?format=hcl" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -o broker_config.tf
+            -H "Content-Type: application/json")
+          # Get the data
+          echo $RESPONSE
+          HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
+          echo "$HCL" >> broker_config.tf            
 
       # --- Step 4: Apply Terraform Configuration ---
       - name: Terraform Init
