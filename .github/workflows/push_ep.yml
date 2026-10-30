@@ -43,6 +43,7 @@ jobs:
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
+          echo $RESPONSE
           JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
 
