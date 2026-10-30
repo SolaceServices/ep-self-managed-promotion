@@ -88,9 +88,9 @@ jobs:
 
       - name: Generate Terraform Plan
         run:  |
+          terraform plan -refresh-only -input=false
           terraform plan -minimal-refresh -input=false -out=tfplan 
           ls -las
-          cat -n  tfplan
         working-directory: ./terraform
         env:
           # Add your broker credentials as secrets
