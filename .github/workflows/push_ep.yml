@@ -84,11 +84,11 @@ jobs:
         run: |
           cp ../broker_config.tf ./ 
           terraform init
-          terraform plan -minimal-refresh -input=false
         working-directory: ./terraform  # your Terraform directory
 
       - name: Generate Terraform Plan
         run:  |
+          terraform plan -minimal-refresh -input=false
           terraform plan -input=false -out=tfplan 
           ls -las
           cat -n  tfplan
