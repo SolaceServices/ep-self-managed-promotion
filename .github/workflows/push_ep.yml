@@ -84,20 +84,20 @@ jobs:
         run: |
           cp ../broker_config.tf ./ 
           terraform init
-          PROVIDER_BIN=$(find .terraform/providers/registry.terraform.io/solaceproducts/solacebroker \
-            -type f -name 'terraform-provider-solacebroker_v*' | sort -V | tail -n 1)
+          #PROVIDER_BIN=$(find .terraform/providers/registry.terraform.io/solaceproducts/solacebroker \
+          #  -type f -name 'terraform-provider-solacebroker_v*' | sort -V | tail -n 1)
+          #
+          #echo "$PROVIDER_BIN"
+          #if [ -z "$PROVIDER_BIN" ]; then
+          #  echo "Provider binary not found' first" >&2
+          #  exit 1
+          #fi
 
-          echo "$PROVIDER_BIN"
-          if [ -z "$PROVIDER_BIN" ]; then
-            echo "Provider binary not found' first" >&2
-            exit 1
-          fi
-
-          "$PROVIDER_BIN" generate \
-            --url="$SEMP_URL" \
-            --username="$SEMP_USERNAME" \
-            --password="$SEMP_PASSWORD" \
-            solacebroker_msg_vpn.sandbox sandbox sandbox.tf          
+          #"$PROVIDER_BIN" generate \
+          #  --url="$SEMP_URL" \
+          #  --username="$SEMP_USERNAME" \
+          #  --password="$SEMP_PASSWORD" \
+          #  solacebroker_msg_vpn.sandbox sandbox sandbox.tf          
             
         working-directory: ./terraform  # your Terraform directory
         env:
@@ -111,8 +111,8 @@ jobs:
 
       - name: Generate Terraform Plan
         run:  |
-          terraform plan -refresh-only -input=false
-          terraform plan -minimal-refresh -input=false -out=tfplan 
+          # terraform plan -refresh-only -input=false
+          # terraform plan -minimal-refresh -input=false -out=tfplan 
           ls -las
         working-directory: ./terraform
         env:
@@ -128,7 +128,7 @@ jobs:
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
-          terraform apply -refresh-only -input=false -auto-approve
+          # terraform apply -refresh-only -input=false -auto-approve
           terraform apply -input=false -auto-approve
         working-directory: ./terraform
         env:
