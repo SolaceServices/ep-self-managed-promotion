@@ -75,6 +75,10 @@ jobs:
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
           echo $RESPONSE
+          if jq -e '.items | length == 0' <<< "$JSON" > /dev/null; then
+            echo "Application ${{ env.APP_NAME }} has no pending Jobs, failing"
+            return 1
+          fi
           JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
 
