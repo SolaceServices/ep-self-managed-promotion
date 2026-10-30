@@ -60,9 +60,24 @@ jobs:
             -H "Content-Type: application/json")
           # Get the data
           echo $RESPONSE
+
+          # Getting the env variables!
+          while IFS='=' read -r key b64; do
+            value=$(printf '%s' "$b64" | base64 -d)
+            echo "::add-mask::${value}"
+            {
+              echo "TF_VAR_${key}<<EOF_${key}"
+              echo "${value}"
+              echo "EOF_${key}"
+            } >> "$GITHUB_ENV"
+          done < <(jq -r '.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
+
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
           echo "$HCL" >> broker_config.tf            
           cat -n  broker_config.tf
+
+      - name: Show GITHUB_ENV
+        run: cat "$GITHUB_ENV"
 
       # --- Step 4: Apply Terraform Configuration ---
       - name: Terraform Init
@@ -78,9 +93,9 @@ jobs:
         working-directory: ./terraform
         env:
           # Add your broker credentials as secrets
-          TF_VAR_broker_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_broker_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_broker_password: ${{ secrets.BROKER_PASSWORD }}          
+          TF_VAR_url: ${{ secrets.BROKER_URL }}
+          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
 
       - name: Terraform Apply
         run: |
@@ -88,9 +103,9 @@ jobs:
         working-directory: ./terraform
         env:
           # Add your broker credentials as secrets
-          TF_VAR_broker_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_broker_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_broker_password: ${{ secrets.BROKER_PASSWORD }}
+          TF_VAR_url: ${{ secrets.BROKER_URL }}
+          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
 
       # --- Step 5: Update Status in Event Portal ---
       - name: Mark Push Job as Complete in Event Portal
