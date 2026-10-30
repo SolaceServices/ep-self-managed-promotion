@@ -39,7 +39,7 @@ jobs:
         id: get_job_id
         run: |
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applications/${{ steps.get_app_id.outputs.app_id }}/configurationPushJobs?pageSize=20&pageNumber=1" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applications/${{ steps.get_app_id.outputs.app_id }}/configurationPushJobs?pageSize=20&pageNumber=1&statuses=pending" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
