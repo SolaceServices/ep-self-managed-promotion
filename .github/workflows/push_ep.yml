@@ -74,19 +74,20 @@ jobs:
 
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
           echo "$HCL" >> broker_config.tf            
-          cat -n  broker_config.tf
+          cat -n broker_config.tf
 
       - name: Show GITHUB_ENV
         run: cat "$GITHUB_ENV"
 
       # --- Step 4: Apply Terraform Configuration ---
       - name: Terraform Init
-        run: terraform init
+        run: |
+          cp ../broker_config.tf ./ 
+          terraform init
         working-directory: ./terraform  # your Terraform directory
 
       - name: Generate Terraform Plan
         run:  |
-          cp ../broker_config.tf ./ 
           terraform plan -input=false -out=tfplan 
           ls -las
           cat -n  tfplan
