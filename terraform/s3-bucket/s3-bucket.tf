@@ -14,7 +14,6 @@ provider "aws" {
 
 resource "aws_s3_bucket" "tf_state" {
   bucket = "poc-ep-self-managed-promotion-tf-state"   # must be globally unique
-  region = "us-east-1"
   lifecycle {
     prevent_destroy = true               # protect the state bucket from accidental deletion
   }
