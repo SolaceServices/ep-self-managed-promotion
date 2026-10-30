@@ -21,7 +21,7 @@ jobs:
     steps:
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b75000b53e9ce4de2b4712237bbdb711bdc92aba
 
       # --- Step 1: Get the Application ID ---
       - name: Get Application ID
