@@ -84,6 +84,7 @@ jobs:
         run: |
           cp ../broker_config.tf ./ 
           terraform init
+          terraform plan -refresh=true
         working-directory: ./terraform  # your Terraform directory
 
       - name: Generate Terraform Plan
@@ -106,7 +107,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
 
-          terraform apply -input=false -auto-approve
+          #z-terraform apply -input=false -auto-approve
         working-directory: ./terraform
         env:
           # Add your broker credentials as secrets
