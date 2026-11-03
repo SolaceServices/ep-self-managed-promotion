@@ -68,7 +68,7 @@ jobs:
           while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload+="="; done
           base64 -d <<< "$payload" | jq '{iss, aud, sub, repository, ref, environment, job_workflow_ref}'
 
-      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
         with:
           role-to-assume: arn:aws:iam::740994956024:role/ep-self-managed-promotion
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
@@ -106,7 +106,7 @@ jobs:
           echo $RESPONSE
           NO_JOB_ID='false'
           if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
-            echo "Application ${{ env.APP_NAME }} has no pending Jobs, aborting"
+            echo "Application ${{ inputs.application_name  }} has no pending Jobs, aborting"
             NO_JOB_ID='true'
             return 2
           fi
@@ -124,7 +124,7 @@ jobs:
             -H "Content-Type: application/json")
           # Get the data
           echo $RESPONSE
-
+          #
           # Getting the env variables!
           while IFS='=' read -r key b64; do
             value=$(printf '%s' "$b64" | base64 -d)
@@ -135,7 +135,7 @@ jobs:
               echo "EOF_${key}"
             } >> "$GITHUB_ENV"
           done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
-
+          #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
           echo "$HCL" >> application_config.tf            
           cat -n application_config.tf
@@ -147,18 +147,14 @@ jobs:
       - name: Terraform Init
         run: |
           cp ../application_config.tf ./ 
-
+          #
           terraform init \
             -backend-config="bucket=$AWS_BUCKET_NAME" \
-            -backend-config="key=solace/{{ env.ENV_NAME }}/${{ env.APP_NAME }}/terraform.tfstate" \
+            -backend-config="key=solace/${{ inputs.environment }}/${{ inputs.application_name }}/terraform.tfstate" \
             -backend-config="region=$AWS_REGION"
 
         working-directory: ./terraform  # your Terraform directory
         env:
-          # Add your broker credentials as secrets
-          #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          #AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
