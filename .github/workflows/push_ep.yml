@@ -33,6 +33,7 @@ env:
   # the name of the environment you will deploy to, defaulting to test
   ENV_NAME: ${{ inputs.environment || 'development'}}
   APP_NAME: ${{ inputs.application_name }}
+  ACTIONS_STEP_DEBUG: ${{ vars.ACTIONS_STEP_DEBUG }}
   AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
   SOLACE_CLOUD_API_BASE: https://api.solace.cloud/api/v2/architecture
   SOLACE_CLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
@@ -112,7 +113,7 @@ jobs:
           fi
           JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
-          echo "no_job_id=NO_JOB_ID" >> $GITHUB_OUTPUT
+          echo "no_job_id=$NO_JOB_ID" >> $GITHUB_OUTPUT
 
       # --- Step 3: Fetch Terraform HCL Configuration ---
       - name: Fetch Terraform HCL Config
@@ -123,22 +124,28 @@ jobs:
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           # Get the data
-          echo $RESPONSE
+          
+          #
+          if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
+            echo $RESPONSE
+          fi          
           #
           # Getting the env variables!
-          while IFS='=' read -r key b64; do
+          while read -r key b64; do
             value=$(printf '%s' "$b64" | base64 -d)
-            echo "::add-mask::${value}"
             {
-              echo "TF_VAR_${key}<<EOF_${key}"
-              echo "${value}"
-              echo "EOF_${key}"
-            } >> "$GITHUB_ENV"
-          done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key)=\(.value | @base64)"' <<< "$RESPONSE")
+             echo "TF_VAR_${key}<<EOF_${key}"
+             echo "${value}"
+             echo "EOF_${key}"
+           } >> "$GITHUB_ENV"
+           done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key) \(.value | @base64)"' <<< "$RESPONSE")
           #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
-          echo "$HCL" >> application_config.tf            
-          cat -n application_config.tf
+          echo "$HCL" >> application_config.tf        
+          #
+          if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
+            cat -n application_config.tf
+          fi
 
       - name: Show GITHUB_ENV
         run: cat "$GITHUB_ENV"
