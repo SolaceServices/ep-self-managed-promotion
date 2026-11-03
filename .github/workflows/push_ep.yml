@@ -131,6 +131,7 @@ jobs:
           # Add your broker credentials as secrets
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
@@ -147,6 +148,7 @@ jobs:
           # Add your broker credentials as secrets
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
           TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
           TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
@@ -165,6 +167,7 @@ jobs:
           # Add your broker credentials as secrets
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
           TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
           TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
