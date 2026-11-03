@@ -57,6 +57,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Show OIDC claims
+        if: ${{ vars.ACTIONS_STEP_DEBUG == 'true' }}
         run: |
           TOKEN=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
@@ -103,15 +104,15 @@ jobs:
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
           echo $RESPONSE
-          JOB_ID_EVAL=0
+          NO_JOB_ID='false'
           if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
-            echo "Application ${{ env.APP_NAME }} has no pending Jobs, failing"
-            JOB_ID_EVAL=1
+            echo "Application ${{ env.APP_NAME }} has no pending Jobs, aborting"
+            NO_JOB_ID='true'
             return 2
           fi
           JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
-          echo "job_id_eval=JOB_ID_EVAL" >> $GITHUB_OUTPUT
+          echo "no_job_id=NO_JOB_ID" >> $GITHUB_OUTPUT
 
       # --- Step 3: Fetch Terraform HCL Configuration ---
       - name: Fetch Terraform HCL Config
@@ -200,7 +201,7 @@ jobs:
 
       # --- Step 5: Update Status in Event Portal ---
       - name: Mark Push Job as Complete in Event Portal
-        if: success()
+        if: ${{ success() && steps.get_job_id.outputs.no_job_id  == 'false' }}
         run: |
             curl -s -X PUT \
             "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applicationConfigurationPushJobs/${{ steps.get_job_id.outputs.job_id }}/status" \
@@ -209,7 +210,7 @@ jobs:
             -d '{"status": "success"}'            
 
       - name: Mark Push Job as Failed in Event Portal
-        if: failure()
+        if: ${{ failure() && steps.get_job_id.outputs.no_job_id  == 'false' }}
         run: |
           curl -s -X PUT \
             "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applicationConfigurationPushJobs/${{ steps.get_job_id.outputs.job_id }}/status" \
