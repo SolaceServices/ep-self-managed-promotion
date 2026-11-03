@@ -75,12 +75,15 @@ jobs:
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
           echo $RESPONSE
-          if jq -e '.items | length == 0' <<< "$JSON" > /dev/null; then
+          JOB_ID_EVAL=0
+          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
             echo "Application ${{ env.APP_NAME }} has no pending Jobs, failing"
-            return 1
+            JOB_ID_EVAL=1
+            return 2
           fi
           JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+          echo "job_id_eval=JOB_ID_EVAL" >> $GITHUB_OUTPUT
 
       # --- Step 3: Fetch Terraform HCL Configuration ---
       - name: Fetch Terraform HCL Config
@@ -124,6 +127,8 @@ jobs:
         working-directory: ./terraform  # your Terraform directory
         env:
           # Add your broker credentials as secrets
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
           TF_VAR_url: ${{ secrets.BROKER_URL }}
