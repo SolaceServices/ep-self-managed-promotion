@@ -17,6 +17,7 @@ on:
       application_name:
         description: 'Application name in Event Portal'
         required: true
+        default: 'EmployeeLifecycleManager'
         type: string
       #application_domain_name:
       #  description: 'Application Domain Name'
@@ -25,6 +26,7 @@ on:
       #  type: string
       application_domain_id:
         description: 'Application Domain ID'
+        default: '3j896ggpxon'
         required: true
 
 env:
