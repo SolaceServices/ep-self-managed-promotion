@@ -1,5 +1,5 @@
 .idea/
-/terraform/s3-bucket/.terraform/
-/terraform/s3-bucket/.terraform.lock.hcl
-/terraform/s3-bucket/terraform.tfstate
-/terraform/s3-bucket/tfplan
+/s3-bucket-creation/.terraform/
+/s3-bucket-creation/.terraform.lock.hcl
+/s3-bucket-creation/terraform.tfstate
+/s3-bucket-creation/tfplan
