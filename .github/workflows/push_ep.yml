@@ -219,17 +219,17 @@ jobs:
         if: ${{ success() && steps.get_job_id.outputs.no_job_id  == 'false' }}
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         run: |
-         date -u > generated/last-run.txt
+         date -u > last-run.txt
          #
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "Nothing to commit"
-          else
-            git commit -m "Update generated files after deployment"
-            git push
-          fi
+         git config user.name  "github-actions[bot]"
+         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+         git add -A
+         if git diff --cached --quiet; then
+           echo "Nothing to commit"
+         else
+           git commit -m "Update generated files after deployment"
+           git push
+         fi
 
       # --- Step 5: Update Status in Event Portal ---
       - name: Mark Push Job as Complete in Event Portal
