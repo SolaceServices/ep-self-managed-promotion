@@ -50,6 +50,9 @@ jobs:
     environment: ${{ inputs.environment || 'development' }}
 
     steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
       - name: Prepare deployment to ${{ env.ENV_NAME }} environment
         id: setup
         run: |
@@ -67,10 +70,7 @@ jobs:
           TERRAFORM_FOLDER="./solace/$ENV_NAME/$APP_NAME"
           mkdir -p $TERRAFORM_FOLDER
           cp ./terraform/terraform-backend.tf $TERRAFORM_FOLDER
-          echo "TERRAFORM_FOLDER=$TERRAFORM_FOLDER" >> $GITHUB_OUTPUT
-
-      - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+          echo "TERRAFORM_FOLDER=$TERRAFORM_FOLDER" >> $GITHUB_OUTPUT        
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b75000b53e9ce4de2b4712237bbdb711bdc92aba
