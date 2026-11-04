@@ -1,0 +1,23 @@
+# This file is maintained automatically by "terraform init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/solaceproducts/solacebroker" {
+  version = "1.4.0"
+  hashes = [
+    "h1:gzJMubjKjAM3aOoK/7wjOkHHgySfZEHtIfdiq5l7k5k=",
+    "zh:01a9d23132120145f378a2225a589583cd548029602c5a800423934d6c30f5d0",
+    "zh:05ef1d8b023697e5f5cd5b48316f3d039665a00033d32b6e09e1d11ff4aebba8",
+    "zh:06aaf917e24d466bfa91f0166188d2545899af044de5f6b2870219ad6b958dba",
+    "zh:35b1836f96987fa2408ef71ca1b0088d29e7a279c0a731f1609a6f55f28c41bc",
+    "zh:890df766e9b839623b1f0437355032a3c006226a6c200cd911e15ee1a9014e9f",
+    "zh:99a8caec38423f8d0773143fc7124988e3aea4d88f209415e3920c4365d1a942",
+    "zh:a5afb498f957b705e5aad79cf89c0cc80439b3c2c44e291fe017346c38e06983",
+    "zh:b8ccace1978b4a5faad379c7f81e056e0d1344aa087745df32adb82e47b52e0a",
+    "zh:b93b828b10eaf265e0f53cf0c7f3fc8aa442ef19431d51c4456201d590a36426",
+    "zh:bd4e1e8834061cef4a027fd06e429d9eed1f463caf2cece8dc0d776827eb13aa",
+    "zh:bfa01208fad7bb6c1d6e5a150670732aa6368ad5bd3c30fc796e2bfb70c02682",
+    "zh:cbac0804a58704e7e7e44713a09765675233c888d4acb68f37e7460cb1015d48",
+    "zh:dec698cfe46ab5c147784d2a791a1af720624f60ae99f262a697e93bb9c40146",
+    "zh:fb667958988ed8c036253f2e986d08c523d5aedad34f46a22616fa33c41a15f1",
+  ]
+}
