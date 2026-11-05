@@ -157,6 +157,9 @@ jobs:
            done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key) \(.value | @base64)"' <<< "$RESPONSE")
           #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
+          # delete the file
+          rm application_config.tf
+          # create the new file
           echo "$HCL" >> application_config.tf        
           #
           if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
