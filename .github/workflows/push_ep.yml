@@ -115,20 +115,34 @@ jobs:
         id: get_job_id
         run: |
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applications/${{ steps.get_app_id.outputs.app_id }}/configurationPushJobs?pageSize=20&pageNumber=1&statuses=pending" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applications/${{ steps.get_app_id.outputs.app_id }}/configurationPushJobs?pageSize=100&pageNumber=1&statuses=pending" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           # Get the most recent job (first in list)
           echo $RESPONSE
           NO_JOB_ID='false'
-          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
-            echo "Application ${{ inputs.application_name  }} has no pending Jobs, aborting"
+          # if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
+          #  echo "Application ${{ inputs.application_name  }} has no pending Jobs, aborting"
+          #  NO_JOB_ID='true'
+          #  return 2
+          #fi
+          #JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
+          
+          ID=$(jq -r --arg broker "$MESH_BROKER_ID" \
+           '[.data[] | select(.eventBrokerId == $broker) | .id] | first // empty' <<< "$RESPONSE")
+          #
+          [ -n "$ID" ] || { 
+            echo "Application ${{ inputs.application_name  }} has no pending Jobs for broker: $MESH_BROKER_ID, aborting"
             NO_JOB_ID='true'
             return 2
-          fi
-          JOB_ID=$(echo $RESPONSE | jq -r '.data[0].id')
-          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
+          }
+          #
+          echo "JobId: $ID"
+          #
+          echo "job_id=$ID" >> $GITHUB_OUTPUT
           echo "no_job_id=$NO_JOB_ID" >> $GITHUB_OUTPUT
+        env:
+          MESH_BROKER_ID: ${{ secrets.MESH_BROKER_ID }}
 
       # --- Step 3: Fetch Terraform HCL Configuration ---
       - name: Fetch Terraform HCL Config
