@@ -177,7 +177,7 @@ jobs:
           #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
           # delete the file
-          rm application_config.tf
+          rm -f application_config.tf
           # create the new file
           echo "$HCL" >> application_config.tf        
           #
