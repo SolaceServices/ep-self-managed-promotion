@@ -70,6 +70,7 @@ jobs:
           TERRAFORM_FOLDER="./solace/$ENV_NAME/$APP_NAME"
           mkdir -p $TERRAFORM_FOLDER
           cp ./terraform/terraform-backend.tf $TERRAFORM_FOLDER
+          cp ./terraform/.gitignore $TERRAFORM_FOLDER
           echo "TERRAFORM_FOLDER=$TERRAFORM_FOLDER" >> $GITHUB_OUTPUT        
 
       - name: Setup Terraform
@@ -223,7 +224,14 @@ jobs:
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-         git add -A
+         # add required files - app, .gitignore and last run
+         git add application_config.tf
+         git add last-run.txt
+         # make sure we dont upload the unnecessary files 
+         git add .gitignore
+         git rm -r --cached .terraform 2>/dev/null || true
+         git rm --cached -- *.tfstate *.tfstate.* 2>/dev/null || true
+         #
          if git diff --cached --quiet; then
            echo "Nothing to commit"
          else
