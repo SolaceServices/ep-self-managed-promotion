@@ -142,7 +142,7 @@ jobs:
           echo "job_id=$ID" >> $GITHUB_OUTPUT
           echo "no_job_id=$NO_JOB_ID" >> $GITHUB_OUTPUT
         env:
-          MESH_BROKER_ID: ${{ secrets.MESH_BROKER_ID }}
+          MESH_BROKER_ID: ${{ vars.MESH_BROKER_ID }}
 
       # --- Step 3: Fetch Terraform HCL Configuration ---
       - name: Fetch Terraform HCL Config
