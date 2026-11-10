@@ -10,11 +10,11 @@ terraform {
 
 provider "aws" {
   region = "us-east-1"
+  profile = "AdministratorAccess-740994956024"
 }
 
 resource "aws_s3_bucket" "tf_state" {
   bucket = "poc-ep-self-managed-promotion-tf-state"   # must be globally unique
-
   lifecycle {
     prevent_destroy = true               # protect the state bucket from accidental deletion
   }
