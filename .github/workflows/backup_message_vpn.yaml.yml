@@ -1,4 +1,4 @@
-name: backup_message_vpn.yaml
+name: Backup Message Vpns
 on:
   schedule:
     # 22:00 NY, everyday
