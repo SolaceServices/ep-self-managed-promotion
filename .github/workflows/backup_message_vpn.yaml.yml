@@ -28,7 +28,7 @@ jobs:
     env:
       ENV_NAME: ${{ matrix.env }}
       MSG_VPN: ${{ matrix.msg-vpn }}
-      BACKUP_FOLDER: './solace/${{env.ENV_NAME}}/message-vpn/${{env.MSG_VPN}}'
+      BACKUP_FOLDER: './solace/${{ matrix.env }}/message-vpn/${{matrix.msg-vpn}}'
       BACKUP_SOLACE_BROKER_HOSTNAME: ${{ secrets.BACKUP_SOLACE_BROKER_HOSTNAME }}
       BACKUP_SOLACE_BROKER_PORT: ${{ secrets.BACKUP_SOLACE_BROKER_PORT }}
       # read-only SEMP user
