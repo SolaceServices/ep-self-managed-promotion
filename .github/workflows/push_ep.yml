@@ -73,9 +73,10 @@ jobs:
         working-directory: ./scripts
         run: |
             python solace_batch_cli_execution.py -H ajcr-sandbox01.messaging.solace.cloud -u mission-control-manager -p v9nerdn7h0uah26hbqfc35csqg -vpn sandbox
-            mkdir -p "./solace/$ENV_NAME/$APP_NAME/"
-            cp output.cli "./solace/$ENV_NAME/$APP_NAME/"
-            cp output.err.cli "./solace/$ENV_NAME/$APP_NAME/"
+            ls -las            
+            mkdir -p "./../solace/$ENV_NAME/$APP_NAME/"
+            cp output.cli "./../solace/$ENV_NAME/$APP_NAME/"
+            cp output.err.cli "./../solace/$ENV_NAME/$APP_NAME/"
 
       - name: Prepare deployment to ${{ env.ENV_NAME }} environment
         id: setup
