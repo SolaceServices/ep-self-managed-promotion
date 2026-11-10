@@ -5,7 +5,12 @@ on:
     - cron: '0 22 * * 0-6'
       timezone: 'America/New_York'
   workflow_dispatch:
-
+    inputs:
+      manual:
+        description: 'Manual run?'
+        required: false
+        default: false
+        type: boolean
 permissions:
   # id-token: write
   # needed for actions/checkout
@@ -28,6 +33,7 @@ jobs:
     env:
       ENV_NAME: ${{ matrix.env }}
       MSG_VPN: ${{ matrix.msg-vpn }}
+      RUN_TYPE: ${{ inputs.manual || false }}
       BACKUP_FOLDER: './solace/${{ matrix.env }}/message-vpn/${{matrix.msg-vpn}}'
       BACKUP_SOLACE_BROKER_HOSTNAME: ${{ secrets.BACKUP_SOLACE_BROKER_HOSTNAME }}
       BACKUP_SOLACE_BROKER_PORT: ${{ secrets.BACKUP_SOLACE_BROKER_PORT }}
@@ -37,7 +43,7 @@ jobs:
       #BACKUP_SOLACE_BROKER_MSG_VPN:  ${{ secrets.BACKUP_SOLACE_BROKER_MSG_VPN }}
 
     steps:
-      - name: "Backup environment='${{ env.ENV_NAME }}' - message-vpn='${{env.MSG_VPN}}'"
+      - name: "Backup environment='${{ env.ENV_NAME }}' - message-vpn='${{env.MSG_VPN}} - manual-process='${{env.RUN_TYPE}}'"
         id: setup
         run: |
           mkdir -p $BACKUP_FOLDER
