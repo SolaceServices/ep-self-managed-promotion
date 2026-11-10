@@ -89,9 +89,12 @@ jobs:
               cat -n output.err.cli
             fi
             #
-            cd ..          
-            cp ./scripts/output.cli $BACKUP_FOLDER/$MSG_VPN.cli
-            cp ./scripts/output.err.cli $BACKUP_FOLDER/$MSG_VPN.err.cli
+
+      - name: Move files
+        run: |
+            current_dir=$(pwd)
+            mv $current_dir/scripts/output.cli $current_dir/$BACKUP_FOLDER/$MSG_VPN.cli
+            mv $current_dir/scripts/output.err.cli $current_dir/$BACKUP_FOLDER/$MSG_VPN.err.cli
 
       - name: Commit and push
         id: commit-and-push
