@@ -1,0 +1,106 @@
+name: backup_message_vpn.yaml
+on:
+  schedule:
+    # 22:00 NY, everyday
+    - cron: '0 22 * * 0-6'
+      timezone: 'America/New_York'
+  workflow_dispatch:
+
+permissions:
+  # id-token: write
+  # needed for actions/checkout
+  contents: write
+  issues: write
+
+concurrency:
+  group: ci-solace-backup
+  cancel-in-progress: true
+jobs:
+  cli-backup-message-vpn:
+    name: backup ${{ matrix.env }} / ${{ matrix.msg-vpn }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [development] #, test, production]
+        msg-vpn: [sandbox] # message-vpns to use
+    environment: ${{ matrix.env }}
+    env:
+      ENV_NAME: ${{ matrix.env }}
+      MSG_VPN: ${{ matrix.msg-vpn }}
+      BACKUP_FOLDER: './solace/${{env.ENV_NAME}}/message-vpn/${{env.MSG_VPN}}'
+      BACKUP_SOLACE_BROKER_HOSTNAME: ${{ secrets.BACKUP_SOLACE_BROKER_HOSTNAME }}
+      BACKUP_SOLACE_BROKER_PORT: ${{ secrets.BACKUP_SOLACE_BROKER_PORT }}
+      # read-only SEMP user
+      BACKUP_SOLACE_BROKER_USERNAME: ${{ secrets.BACKUP_SOLACE_BROKER_USERNAME }}
+      BACKUP_SOLACE_BROKER_PASSWORD: ${{ secrets.BACKUP_SOLACE_BROKER_PASSWORD }}
+      #BACKUP_SOLACE_BROKER_MSG_VPN:  ${{ secrets.BACKUP_SOLACE_BROKER_MSG_VPN }}
+
+    steps:
+
+      - name: "Backup environment\: '${{ env.ENV_NAME }}' - message-vpn\: '${{env.MSG_VPN}}'"
+        id: setup
+        run: |
+          mkdir -p $BACKUP_FOLDER
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+          # caches pip downloads between runs
+          cache: pip
+
+      - name: Install python script dependencies
+        working-directory: ./scripts
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Get CLI
+        working-directory: ./scripts
+        run: |
+            python solace_batch_cli_execution.py -H $BACKUP_SOLACE_BROKER_HOSTNAME -P $BACKUP_SOLACE_BROKER_PORT -u $BACKUP_SOLACE_BROKER_USERNAME -x $BACKUP_SOLACE_BROKER_PASSWORD -v $MSG_VPN
+            # Test "output.cli" file
+            file="output.cli"
+            if [ ! -e "$file" ]; then
+              echo "Backup $file does not exist."
+              exit 1
+            elif [ ! -s "$file" ]; then
+                echo "Backup $file is empty."
+                exit 1
+            fi          
+            # Test "output.err.cli" file
+            file="output.err.cli"
+            if [ -s "$file" ]; then
+                echo "Backup $file is empty."
+                exit 1
+            fi   
+            #
+            # See the contents in debug mode
+            if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
+              cat -n output.cli
+              cat -n output.err.cli
+            fi
+            #          
+            cp output.cli $BACKUP_FOLDER/$MSG_VPN.cli
+            cp output.err.cli $BACKUP_FOLDER/$MSG_VPN.err.cli
+
+      - name: Commit and push
+        id: commit-and-push
+        if: ${{ success() }}
+        working-directory: ${{ env.BACKUP_FOLDER }}
+        run: |
+         date -u > last-run.txt
+         #
+         git config user.name  "github-actions[bot]"
+         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+         # add required files - app, .gitignore and last run
+         git add $MSG_VPN.cli
+         git add $MSG_VPN.err.cli
+         git add last-run.txt
+         #
+         if git diff --cached --quiet; then
+           echo "Nothing to commit"
+         else
+           git commit -m "Update generated backup files"
+           git push
+         fi

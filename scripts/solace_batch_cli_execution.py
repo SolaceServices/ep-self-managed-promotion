@@ -1,17 +1,3 @@
-### Accepts a list of CLI files , copies them over to solace appliance, executes them in the given order and downloads output files to a directory named Output_<hostname>
-### & deletes the .out and .cli files that were copied over to appliance
-### Try --help for usage help
-###
-### ALS    - 2025/06/05 - WORKING VERSION
-### ALS    - 2025/06/11 - ADDED TIMEOUT, DELAY AND INCREASE RECEIVED BUFFER
-### ALS/CB - 2025/06/27 - IMPROVED SSH COMMAND EXECUTION
-### ALS/CB - 2025/08/21 - INCREASED SHELL TIMEOUT VALUES
-### ALS    - 2025/08/22 - modified with code from Alfoso Chacon from Solace Professional Services.
-### ALS    - 2025/08/23 - re-enabled removing files after execution.
-### ALS    - 2025/08/25 - corrected indentation for delete block.
-### ALS    - 2025/09/08 - added code to decrypt user password from file instead of receiving a parameter.
-### ALS    - 2025/09/09 - enhanced return of error code via error_flag variable.
-### ALS    - 2025/10/09 - commented off printing STDOUT with the password.
 ###
 import argparse
 import logging
@@ -27,18 +13,14 @@ import paramiko
 #----------------------------------------------------------------------------
 # Standard vars used
 #----------------------------------------------------------------------------
-remote_directory = "/cliscripts"
-cli_dir = "/cliscripts"
 LAST_COMMAND = "-----EXIT-----"
 LOGOUT_COMMAND = f"logout\n".encode()
 REPLACE_LAST_COMMAND_OUTPUT = fr"\s*Invalid command input\s+{LAST_COMMAND}\s+\^\s+-> unknown command, or command not available in current mode\s*"
 
-
-
 #------------------------------------------------
 # function to execute commands in Solace broker.
 #------------------------------------------------
-def execute_commands_on_solace(hostname, username, password, commands):
+def execute_commands_on_solace(hostname: str, port: str, username: str, password: str, commands: list[str]) -> None:
     #-----------------------------------------------------------------------------------------------
     # Executes a sequence of commands on the Solace appliance via an interactive SSH shell_channel
     #-----------------------------------------------------------------------------------------------
@@ -63,7 +45,7 @@ def execute_commands_on_solace(hostname, username, password, commands):
         # Establish an SSH connection
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname=hostname, username=username, password=password, port=2222)
+        ssh.connect(hostname=hostname, username=username, password=password, port=port)
 
         # Open an interactive shell_channel session
         shell_channel= ssh.invoke_shell()
@@ -78,9 +60,8 @@ def execute_commands_on_solace(hostname, username, password, commands):
         # Execute basic CLI set up commands before executing the commands received
         #
         # bytes_sent = shell_channel.send("session timeout 600\n".encode())
-        setupcmds = []
+        setupcmds: list[str] = list()
         setupcmds.append('no paging')
-        setupcmds.append('cd /cliscripts')
         setupcmds.append('session timeout 0')
         #
         #  do include the computed source commands.
@@ -188,14 +169,16 @@ def execute_commands_on_solace(hostname, username, password, commands):
             print(f"Waiting to receive more output...3 seconds: cycle {get_output_cycles}, continue_while={continue_while}")
             time.sleep(3)  # Avoid busy-waiting
 
-        print(f'StdOut: {re.sub(REPLACE_LAST_COMMAND_OUTPUT,"\n", stdout_buffer.getvalue())}')
-        print(f'StdErr: {stderr_buffer.getvalue()}')
+        output_buffer: str = f'{re.sub(REPLACE_LAST_COMMAND_OUTPUT,"\n", stdout_buffer.getvalue())}'
+        err_buffer: str = f'{stderr_buffer.getvalue()}'
+        print(f'StdOut: {output_buffer}')
+        print(f'StdErr: {err_buffer}')
 
         with open("output.cli", "w") as file:
-            file.write(f'StdOut: {re.sub(REPLACE_LAST_COMMAND_OUTPUT,"\n", stdout_buffer.getvalue())}')
+            file.write(output_buffer)
 
         with open("output.err.cli", "w") as file:
-            file.write(f'{stderr_buffer.getvalue()}')
+            file.write(err_buffer)
 
         # Close the SSH connection
         shell_channel.close()
@@ -233,8 +216,6 @@ def execute_commands_on_solace(hostname, username, password, commands):
 #---------------------------------------------------------------------
 # main program
 # --------------------------------------------------------------------
-
-
 def main():
     """
     Main function to handle the workflow of listing, selecting, uploading, executing, and downloading CLI files.
@@ -260,31 +241,36 @@ def main():
         # Set up argument parser
         parser = argparse.ArgumentParser(description="CLI Script execution on Solace appliance")
         parser.add_argument("--hostname", "-H", required=True, help="Solace Host")
+        parser.add_argument("--port", "-P", required=True, help="Solace username")
         parser.add_argument("--username", "-u", required=True, help="Solace username")
-        parser.add_argument("--password", "-p", required=True, help="Encrypted file with Solace user password")
-        parser.add_argument("--vpn_name", "-vpn", required=True, help="VPN Name")
+        parser.add_argument("--password", "-x", required=True, help="Encrypted file with Solace user password")
+        parser.add_argument("--vpn_name", "-v", required=True, help="VPN Name")
 
 
         # Parse arguments
         args = parser.parse_args()
         hostname = args.hostname
+        port = args.port
         username = args.username
         password = args.password
         vpn_name  = args.vpn_name
 
-        commands = []
+        commands: list[str] = list()
 
-        cli_dir = "/cliscripts"
-
+        #cli_dir = "/cliscripts"
+        #
         #commands.append(
         #    f"source script {cli_dir}/create_vpn.cli stop-on-error no-prompt > {cli_dir}/create_vpn.out"
         #)
+
+        #commands.append(
+        #    f"show current-config all redact"
+        #)
         commands.append(
-            f"show current-config all redact"
+            f"show current-config message-vpn {vpn_name} redact"
         )
 
-
-        execute_commands_on_solace(hostname, username, password, commands)
+        execute_commands_on_solace(hostname, port, username, password, commands)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
