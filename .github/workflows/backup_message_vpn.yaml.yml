@@ -37,8 +37,7 @@ jobs:
       #BACKUP_SOLACE_BROKER_MSG_VPN:  ${{ secrets.BACKUP_SOLACE_BROKER_MSG_VPN }}
 
     steps:
-
-      - name: "Backup environment\: '${{ env.ENV_NAME }}' - message-vpn\: '${{env.MSG_VPN}}'"
+      - name: "Backup environment='${{ env.ENV_NAME }}' - message-vpn='${{env.MSG_VPN}}'"
         id: setup
         run: |
           mkdir -p $BACKUP_FOLDER
