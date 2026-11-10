@@ -88,9 +88,10 @@ jobs:
               cat -n output.cli
               cat -n output.err.cli
             fi
-            #          
-            cp output.cli $BACKUP_FOLDER/$MSG_VPN.cli
-            cp output.err.cli $BACKUP_FOLDER/$MSG_VPN.err.cli
+            #
+            cd ..          
+            cp ./scripts/output.cli $BACKUP_FOLDER/$MSG_VPN.cli
+            cp ./scripts/output.err.cli $BACKUP_FOLDER/$MSG_VPN.err.cli
 
       - name: Commit and push
         id: commit-and-push
