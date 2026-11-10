@@ -9,8 +9,9 @@ on:
       manual:
         description: 'Manual run?'
         required: false
-        default: false
+        default: true
         type: boolean
+
 permissions:
   # id-token: write
   # needed for actions/checkout
@@ -46,7 +47,8 @@ jobs:
       - name: "Backup environment='${{ env.ENV_NAME }}' - message-vpn='${{env.MSG_VPN}} - manual-process='${{env.RUN_TYPE}}'"
         id: setup
         run: |
-          mkdir -p $BACKUP_FOLDER
+          current_dir=$(pwd)
+          mkdir -v -p $current_dir/$BACKUP_FOLDER
 
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -83,6 +85,9 @@ jobs:
                 exit 1
             fi   
             #
+            current_dir=$(pwd)
+            echo "Current dir: $current_dir"
+            ls -las
             # See the contents in debug mode
             if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
               cat -n output.cli
