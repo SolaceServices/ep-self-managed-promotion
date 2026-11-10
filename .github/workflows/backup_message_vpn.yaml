@@ -35,7 +35,7 @@ jobs:
       ENV_NAME: ${{ matrix.env }}
       MSG_VPN: ${{ matrix.msg-vpn }}
       RUN_TYPE: ${{ inputs.manual || false }}
-      BACKUP_FOLDER: './solace/${{ matrix.env }}/message-vpn/${{matrix.msg-vpn}}'
+      BACKUP_FOLDER: 'solace/${{ matrix.env }}/message-vpn/${{matrix.msg-vpn}}'
       BACKUP_SOLACE_BROKER_HOSTNAME: ${{ secrets.BACKUP_SOLACE_BROKER_HOSTNAME }}
       BACKUP_SOLACE_BROKER_PORT: ${{ secrets.BACKUP_SOLACE_BROKER_PORT }}
       # read-only SEMP user
@@ -49,6 +49,7 @@ jobs:
         run: |
           current_dir=$(pwd)
           mkdir -v -p $current_dir/$BACKUP_FOLDER
+          ls -las $current_dir/$BACKUP_FOLDER
 
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -98,13 +99,15 @@ jobs:
       - name: Move files
         run: |
             current_dir=$(pwd)
+            ls -las $current_dir/scripts 
+            ls -las $current_dir/$BACKUP_FOLDER
             mv $current_dir/scripts/output.cli $current_dir/$BACKUP_FOLDER/$MSG_VPN.cli
             mv $current_dir/scripts/output.err.cli $current_dir/$BACKUP_FOLDER/$MSG_VPN.err.cli
 
       - name: Commit and push
         id: commit-and-push
         if: ${{ success() }}
-        working-directory: ${{ env.BACKUP_FOLDER }}
+        working-directory: "./${{ env.BACKUP_FOLDER }}"
         run: |
          date -u > last-run.txt
          #
