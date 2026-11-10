@@ -71,7 +71,11 @@ jobs:
 
       - name: Get CLI
         working-directory: ./scripts
-        run: python solace_batch_cli_execution.py -H ajcr-sandbox01.messaging.solace.cloud -u mission-control-manager -p v9nerdn7h0uah26hbqfc35csqg -vpn sandbox
+        run: |
+            python solace_batch_cli_execution.py -H ajcr-sandbox01.messaging.solace.cloud -u mission-control-manager -p v9nerdn7h0uah26hbqfc35csqg -vpn sandbox
+            mkdir -p "./solace/$ENV_NAME/$APP_NAME/"
+            cp output.cli "./solace/$ENV_NAME/$APP_NAME/"
+            cp output.err.cli "./solace/$ENV_NAME/$APP_NAME/"
 
       - name: Prepare deployment to ${{ env.ENV_NAME }} environment
         id: setup
@@ -262,6 +266,8 @@ jobs:
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
          # add required files - app, .gitignore and last run
+         git add output.cli
+         git add output.err.cli
          git add application_config.tf
          git add last-run.txt
          # make sure we dont upload the unnecessary files 
