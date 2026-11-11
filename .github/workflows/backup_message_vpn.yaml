@@ -103,7 +103,6 @@ jobs:
         if: ${{ success() }}
         working-directory: "./${{ env.BACKUP_FOLDER }}"
         run: |
-         date -u > last-run.txt
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -111,7 +110,6 @@ jobs:
          git pull
          git add $MSG_VPN.cli
          git add $MSG_VPN.err.cli
-         git add last-run.txt
          #
          if git diff --cached --quiet; then
            echo "Nothing to commit"
@@ -201,7 +199,6 @@ jobs:
         if: ${{ success() }}
         working-directory: "./${{ env.BACKUP_FOLDER }}"
         run: |
-         date -u > last-run.txt
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -209,7 +206,6 @@ jobs:
          git pull
          git add broker.cli
          git add broker.err.cli
-         git add last-run.txt
          #
          if git diff --cached --quiet; then
            echo "Nothing to commit"
