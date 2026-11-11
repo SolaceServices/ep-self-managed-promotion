@@ -1,4 +1,4 @@
-name: Backup Cloud Broker (CLI)
+name: Backup Solace Cloud Services
 on:
   schedule:
     # 22:10 NY, everyday
@@ -93,8 +93,6 @@ jobs:
 
       - name: Terraform Init
         working-directory: ./solace/cloud
-        run: |
-      - name: Terraform Init
         run: |
           #
           terraform init \
