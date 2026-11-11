@@ -1,4 +1,4 @@
-name: Event Portal Self-Managed Config Push
+name: Event Portal - Config Push
 run-name: Deploy to ${{ inputs.environment }} by @${{ github.actor }}
 
 on:
@@ -12,7 +12,7 @@ on:
         options:
           - development
           - test
-          - production
+          # - production
       # TODO: check for application version
       application_name:
         description: 'Application name in Event Portal'
@@ -30,7 +30,8 @@ on:
         required: true
 concurrency:
   group: ci-solace-ep-deployment
-  cancel-in-progress: true
+  queue: max
+  cancel-in-progress: false
 env:
   # the name of the environment you will deploy to, defaulting to test
   ENV_NAME: ${{ inputs.environment || 'development'}}
@@ -58,40 +59,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
-        with:
-          python-version: '3.12'
-          cache: pip          # caches pip downloads between runs
-
-      - name: Install python script dependencies
-        working-directory: ./scripts
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Get CLI
-        working-directory: ./scripts
-        run: |
-            python solace_batch_cli_execution.py -H ajcr-sandbox01.messaging.solace.cloud -u mission-control-manager -p v9nerdn7h0uah26hbqfc35csqg -vpn sandbox
-            ls -las            
-            mkdir -p "./../solace/$ENV_NAME/$APP_NAME/"
-            cp output.cli "./../solace/$ENV_NAME/$APP_NAME/"
-            cp output.err.cli "./../solace/$ENV_NAME/$APP_NAME/"
-
       - name: Prepare deployment to ${{ env.ENV_NAME }} environment
         id: setup
         run: |
           echo "Deploying EP application: ${{ env.APP_NAME }} to $ENV_NAME"
-          url=${{ secrets.BROKER_URL }}
           #
-          # 1. Strip the protocol (removes everything up to and including '://')
-          temp="${url#*://}"
-          # 2. Strip the path, query, and fragment (removes everything from the first '/', '?', or '#')
-          temp="${temp%%[/?#]*}"
-          # 3. Strip the port number (removes everything from the first ':')
-          hostname="${temp%%:*}"
-          # echo "$hostname"
-          # Output: sub.example.com
           TERRAFORM_FOLDER="./solace/$ENV_NAME/$APP_NAME"
           mkdir -p $TERRAFORM_FOLDER
           cp ./terraform/terraform-backend.tf $TERRAFORM_FOLDER
@@ -159,7 +131,7 @@ jobs:
           [ -n "$ID" ] || { 
             echo "Application ${{ inputs.application_name  }} has no pending Jobs for broker: $MESH_BROKER_ID, aborting"
             NO_JOB_ID='true'
-            return 2
+            exit 2
           }
           #
           echo "JobId: $ID"
@@ -206,7 +178,11 @@ jobs:
           fi
 
       - name: Show GITHUB_ENV
-        run: cat "$GITHUB_ENV"
+        run: |
+          if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
+            cat "$GITHUB_ENV"
+          fi
+        
 
       # --- Step 4: Apply Terraform Configuration ---
       - name: Terraform Init
@@ -231,7 +207,9 @@ jobs:
       - name: Generate Terraform Plan
         run:  |
           terraform plan -input=false -out=tfplan 
-          ls -las
+          if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
+            ls -las
+          fi
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         env:
           TF_VAR_url: ${{ secrets.BROKER_URL }}
@@ -246,7 +224,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
           #
-           terraform apply -input=false -auto-approve tfplan
+          terraform apply -input=false -auto-approve tfplan
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         env:
           # Add your broker credentials as secrets
@@ -262,15 +240,11 @@ jobs:
         if: ${{ success() && steps.get_job_id.outputs.no_job_id  == 'false' }}
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         run: |
-         date -u > last-run.txt
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
          # add required files - app, .gitignore and last run
-         git add output.cli
-         git add output.err.cli
          git add application_config.tf
-         git add last-run.txt
          # make sure we dont upload the unnecessary files 
          git add .gitignore
          git rm -r --cached .terraform 2>/dev/null || true
