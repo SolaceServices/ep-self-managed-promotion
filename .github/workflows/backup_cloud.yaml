@@ -128,7 +128,11 @@ jobs:
                 rm -f -- "$file"
                 #
                 echo "=== terraform state show $name ==="
-                terraform state show "$name"  > "$name-full.tf"
+                if out=$(terraform state show "$name" 2>&1); then
+                    printf '%s\n' "$out" > "$name-full.tf"
+                else
+                    echo "Failed: $name" >&2
+                fi
             done
           
 
