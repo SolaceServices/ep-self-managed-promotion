@@ -91,7 +91,8 @@ jobs:
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Additional steps
+      - name: Validate AWS Caller identity
+        if: ${{ vars.ACTIONS_STEP_DEBUG == 'true' }}
         run: |
           # Your commands that require AWS credentials
           aws sts get-caller-identity
