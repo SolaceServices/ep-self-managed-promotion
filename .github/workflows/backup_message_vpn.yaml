@@ -157,7 +157,7 @@ jobs:
       - name: "Get CLI environment='${{ env.ENV_NAME }}' - manual-process='${{env.RUN_TYPE}}'"
         working-directory: ./scripts
         run: |
-            python solace_batch_cli_execution.py -H $BACKUP_SOLACE_BROKER_HOSTNAME -P $BACKUP_SOLACE_BROKER_PORT -u $BACKUP_SOLACE_BROKER_USERNAME -x $BACKUP_SOLACE_BROKER_PASSWORD -v $MSG_VPN
+            python solace_batch_cli_execution.py -H $BACKUP_SOLACE_BROKER_HOSTNAME -P $BACKUP_SOLACE_BROKER_PORT -u $BACKUP_SOLACE_BROKER_USERNAME -x $BACKUP_SOLACE_BROKER_PASSWORD -v "$MSG_VPN"
             # Test "output.cli" file
             file="output.cli"
             if [ ! -e "$file" ]; then
