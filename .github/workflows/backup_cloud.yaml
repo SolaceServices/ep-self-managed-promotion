@@ -124,12 +124,13 @@ jobs:
                 esac
                 name="${file%.tf}"
                 #
-                echo "=== Deleting $file ==="
-                rm -f -- "$file"
+
                 #
                 echo "=== terraform state show $name ==="
                 if out=$(terraform state show "$name" 2>&1); then
-                    printf '%s\n' "$out" > "$name-full.tf"
+                    printf '%s\n' "$out" > "$name-full.txt"
+                    echo "=== Deleting $file ==="
+                    rm -f -- "$file"
                 else
                     echo "Failed: $name" >&2
                 fi
