@@ -22,8 +22,8 @@ SERVICES_PATH = "/api/v2/missionControl/eventBrokerServices"
 PAGE_SIZE = 100
 TIMEOUT = 60
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT = REPO_ROOT / "solace" / "cloud"
+DEFAULT_REPO_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_SUBDIR = Path("solace") / "cloud"
 
 
 def parse_args():
@@ -40,8 +40,11 @@ def parse_args():
                    help="Environment name used by the data source when --public is set (default: Default).")
     p.add_argument("--base-url", default=API_BASE,
                    help=f"Solace Cloud API base URL (default: {API_BASE}).")
-    p.add_argument("--output-dir", default=str(DEFAULT_OUTPUT),
-                   help=f"Output folder (default: {DEFAULT_OUTPUT}).")
+    p.add_argument("--repo-root", default=str(DEFAULT_REPO_ROOT),
+                   help=f"Repository root; files are written to <repo-root>/{OUTPUT_SUBDIR.as_posix()} "
+                        f"(default: {DEFAULT_REPO_ROOT}).")
+    p.add_argument("--output-dir", default=None,
+                   help="Explicit output folder. Overrides --repo-root when given.")
     return p.parse_args()
 
 
@@ -153,11 +156,15 @@ def main():
         if not selected:
             sys.exit("No services to export.")
 
-        out_dir = Path(args.output_dir)
+        out_dir = Path(args.output_dir) if args.output_dir else Path(args.repo_root).resolve() / OUTPUT_SUBDIR
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "provider.tf").write_text(provider_tf(args.base_url, args.public, args.environment_name),
-                                             encoding="utf-8", newline="\n")
-        print(f"Wrote {out_dir / 'provider.tf'}")
+        provider_path = out_dir / "provider.tf"
+        if provider_path.exists():
+            print(f"Skipping {provider_path}: file already exists, not overwriting.")
+        else:
+            provider_path.write_text(provider_tf(args.base_url, args.public, args.environment_name),
+                                     encoding="utf-8", newline="\n")
+            print(f"Wrote {provider_path}")
 
         used_labels = set()
         for summary in selected:

@@ -33,6 +33,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b75000b53e9ce4de2b4712237bbdb711bdc92aba
+
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
@@ -48,7 +51,7 @@ jobs:
       - name: "Get Solace Cloud Backup - manual-process='${{env.RUN_TYPE}}'"
         working-directory: ./scripts
         run: |
-            python solace_generate_cloud_backup.py --services="$SOLACE_CLOUD_SERVICES"
+            python solace_generate_cloud_backup.py --services="$SOLACE_CLOUD_SERVICES" --repo-root=./../ 
             #
             current_dir=$(pwd)
             echo "Current dir: $current_dir"
@@ -62,21 +65,83 @@ jobs:
               done
             fi
             #
+          
 
-      - name: Move files
+      - name: Show OIDC claims
+        if: ${{ vars.ACTIONS_STEP_DEBUG == 'true' }}
         run: |
-            current_dir=$(pwd)
-            mkdir -v -p $current_dir/$BACKUP_FOLDER
-            ls -las $current_dir/$BACKUP_FOLDER          
-            ls -las $current_dir/scripts 
-            ls -las $current_dir/$BACKUP_FOLDER
-            mv $current_dir/scripts/output.cli $current_dir/$BACKUP_FOLDER/broker.cli
-            mv $current_dir/scripts/output.err.cli $current_dir/$BACKUP_FOLDER/broker.err.cli
+          TOKEN=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          #
+          # decode the middle part (the payload) of the JWT
+          payload=$(cut -d. -f2 <<< "$TOKEN" | tr '_-' '/+')
+          # restore base64 padding
+          while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload+="="; done
+          base64 -d <<< "$payload" | jq '{iss, aud, sub, repository, ref, environment, job_workflow_ref}'
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Validate AWS Caller identity
+        if: ${{ vars.ACTIONS_STEP_DEBUG == 'true' }}
+        run: |
+          # Your commands that require AWS credentials  
+          aws sts get-caller-identity
+
+      - name: Terraform Init
+        working-directory: ./solace/cloud
+        run: |
+      - name: Terraform Init
+        run: |
+          #
+          terraform init \
+            -backend-config="bucket=$AWS_BUCKET_NAME" \
+            -backend-config="key=solace/cloud/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION"
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+
+      - name: Terraform Plan
+        working-directory: ./solace/cloud
+        run: |
+            terraform plan -input=false -out=tfplan 
+
+      - name: Terraform Apply - Import into tfstate
+        working-directory: ./solace/cloud
+        run: |
+            terraform apply -input=false -auto-approve tfplan
+
+      - name: Create Full tf files
+        working-directory: ./solace/cloud
+        run: |
+            shopt -s nullglob
+            #
+            for file in *.tf; do
+                case "$file" in
+                    provider.tf|terraform-backend.tf) continue ;;
+                esac
+            
+                name="${file%.tf}"
+                echo "=== terraform state show $name ==="
+                terraform state show "$name"  > "$name-full.tf"
+            done
+            for file in *.tf; do
+                case "$file" in
+                    provider.tf|terraform-backend.tf|*full*) continue ;;
+                esac
+            
+                echo "Deleting $file"
+                rm -f -- "$file"
+            done
 
       - name: Commit and push
         id: commit-and-push
         if: ${{ success() }}
-        working-directory: "./${{ env.BACKUP_FOLDER }}"
+        working-directory: ./solace/cloud
         run: |
          #
          git config user.name  "github-actions[bot]"
@@ -84,8 +149,9 @@ jobs:
          # add required files - app, .gitignore and last run
          git update-ref -d refs/remotes/origin/${{ github.ref_name }}
          git pull
-         git add broker.cli
-         git add broker.err.cli
+         git add *.tf
+         git rm -r --cached .terraform 2>/dev/null || true
+         git rm --cached -- *.tfstate *.tfstate.* 2>/dev/null || true
          #
          if git diff --cached --quiet; then
            echo "Nothing to commit"
