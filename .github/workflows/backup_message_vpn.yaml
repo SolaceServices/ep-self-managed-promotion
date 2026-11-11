@@ -47,9 +47,6 @@ jobs:
       - name: "Backup environment='${{ env.ENV_NAME }}' - message-vpn='${{env.MSG_VPN}} - manual-process='${{env.RUN_TYPE}}'"
         id: setup
         run: |
-          current_dir=$(pwd)
-          mkdir -v -p $current_dir/$BACKUP_FOLDER
-          ls -las $current_dir/$BACKUP_FOLDER
 
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -99,6 +96,8 @@ jobs:
       - name: Move files
         run: |
             current_dir=$(pwd)
+            mkdir -v -p $current_dir/$BACKUP_FOLDER
+            ls -las $current_dir/$BACKUP_FOLDER          
             ls -las $current_dir/scripts 
             ls -las $current_dir/$BACKUP_FOLDER
             mv $current_dir/scripts/output.cli $current_dir/$BACKUP_FOLDER/$MSG_VPN.cli
