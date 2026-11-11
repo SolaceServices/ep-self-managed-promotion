@@ -94,17 +94,6 @@ jobs:
       - name: Terraform Init
         working-directory: ./solace/cloud
         run: |
-          shopt -s nullglob
-          #
-          echo "=== Deleting old tf files ==="
-          #
-          for file in *.tf; do
-              case "$file" in
-                  provider.tf|terraform-backend.tf) continue ;;
-              esac
-              echo "=== Deleting $file ==="
-              rm -f -- "$file"
-          done          
           #
           terraform init \
             -backend-config="bucket=$AWS_BUCKET_NAME" \
@@ -142,6 +131,7 @@ jobs:
                     printf '%s\n' "$out" > "$name-full.txt"
                     echo "=== Deleting $file ==="
                     rm -f -- "$file"
+                    mv "$name-full.txt" "$name.tf"
                 else
                     echo "Failed: $name" >&2
                 fi
