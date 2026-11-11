@@ -171,11 +171,25 @@ def execute_commands_on_solace(hostname: str, port: str, username: str, password
 
         output_buffer: str = f'{re.sub(REPLACE_LAST_COMMAND_OUTPUT,"\n", stdout_buffer.getvalue())}'
         err_buffer: str = f'{stderr_buffer.getvalue()}'
-        print(f'StdOut: {output_buffer}')
+        # print(f'StdOut: {output_buffer}')
         print(f'StdErr: {err_buffer}')
 
+        clean_lines: list[str] = list()
+        append_text: bool = False
+        for line in output_buffer.splitlines(keepends=True):
+            cline = line.lstrip()
+            if append_text == False and cline.startswith("! BEGIN"):
+                append_text = True
+            elif  append_text== True and cline.startswith("! END"):
+                append_text = False
+
+            if append_text == True or cline.startswith("! END"):
+                clean_lines.append(line)
+
+        clean_output = "".join(clean_lines)
+
         with open("output.cli", "w") as file:
-            file.write(output_buffer)
+            file.write(clean_output)
 
         with open("output.err.cli", "w") as file:
             file.write(err_buffer)
@@ -257,18 +271,14 @@ def main():
 
         commands: list[str] = list()
 
-        #cli_dir = "/cliscripts"
-        #
-        #commands.append(
-        #    f"source script {cli_dir}/create_vpn.cli stop-on-error no-prompt > {cli_dir}/create_vpn.out"
-        #)
-
-        #commands.append(
-        #    f"show current-config all redact"
-        #)
-        commands.append(
-            f"show current-config message-vpn {vpn_name} redact"
-        )
+        if vpn_name == "*":
+            commands.append(
+                f"show current-config all redact"
+            )
+        else:
+            commands.append(
+                f"show current-config message-vpn {vpn_name} redact"
+            )
 
         execute_commands_on_solace(hostname, port, username, password, commands)
 
