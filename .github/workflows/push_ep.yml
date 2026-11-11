@@ -63,16 +63,7 @@ jobs:
         id: setup
         run: |
           echo "Deploying EP application: ${{ env.APP_NAME }} to $ENV_NAME"
-          url=${{ secrets.BROKER_URL }}
           #
-          # 1. Strip the protocol (removes everything up to and including '://')
-          temp="${url#*://}"
-          # 2. Strip the path, query, and fragment (removes everything from the first '/', '?', or '#')
-          temp="${temp%%[/?#]*}"
-          # 3. Strip the port number (removes everything from the first ':')
-          hostname="${temp%%:*}"
-          # echo "$hostname"
-          # Output: sub.example.com
           TERRAFORM_FOLDER="./solace/$ENV_NAME/$APP_NAME"
           mkdir -p $TERRAFORM_FOLDER
           cp ./terraform/terraform-backend.tf $TERRAFORM_FOLDER
@@ -140,7 +131,7 @@ jobs:
           [ -n "$ID" ] || { 
             echo "Application ${{ inputs.application_name  }} has no pending Jobs for broker: $MESH_BROKER_ID, aborting"
             NO_JOB_ID='true'
-            return 2
+            exit 2
           }
           #
           echo "JobId: $ID"
