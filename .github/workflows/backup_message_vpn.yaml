@@ -1,4 +1,4 @@
-name: Backup Message Vpns
+name: Backup Message Vpns (CLI)
 on:
   schedule:
     # 22:00 NY, everyday
