@@ -120,21 +120,17 @@ jobs:
             #
             for file in *.tf; do
                 case "$file" in
-                    provider.tf|terraform-backend.tf) continue ;;
+                    provider.tf|terraform-backend.tf|-full.tf) continue ;;
                 esac
-            
                 name="${file%.tf}"
+                #
+                echo "=== Deleting $file ==="
+                rm -f -- "$file"
+                #
                 echo "=== terraform state show $name ==="
                 terraform state show "$name"  > "$name-full.tf"
             done
-            for file in *.tf; do
-                case "$file" in
-                    provider.tf|terraform-backend.tf|*full*) continue ;;
-                esac
-            
-                echo "Deleting $file"
-                rm -f -- "$file"
-            done
+          
 
       - name: Commit and push
         id: commit-and-push
