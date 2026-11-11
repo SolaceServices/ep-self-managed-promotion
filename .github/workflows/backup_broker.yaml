@@ -22,7 +22,6 @@ concurrency:
   group: ci-solace-backup_broker
   cancel-in-progress: true
 jobs:
-
   cli-backup-service:
     name: backup ${{ matrix.env }}
     runs-on: ubuntu-latest

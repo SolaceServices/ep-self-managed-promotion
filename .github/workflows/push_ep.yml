@@ -1,4 +1,4 @@
-name: Event Portal Self-Managed Config Push
+name: Event Portal - Config Push
 run-name: Deploy to ${{ inputs.environment }} by @${{ github.actor }}
 
 on:
@@ -30,7 +30,7 @@ on:
         required: true
 concurrency:
   group: ci-solace-ep-deployment
-  queue: 3
+  queue: max
   cancel-in-progress: false
 env:
   # the name of the environment you will deploy to, defaulting to test
