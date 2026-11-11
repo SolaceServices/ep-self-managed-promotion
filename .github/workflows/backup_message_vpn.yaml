@@ -108,6 +108,7 @@ jobs:
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
          # add required files - app, .gitignore and last run
+         git pull
          git add $MSG_VPN.cli
          git add $MSG_VPN.err.cli
          git add last-run.txt
