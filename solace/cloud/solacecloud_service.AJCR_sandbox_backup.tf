@@ -5,7 +5,7 @@ resource "solacecloud_service" "AJCR_sandbox_backup" {
   event_broker_version = "10.26.0.9219-22"
   message_vpn_name     = "sandbox"
   max_spool_usage      = 50
-  locked               = false
+  locked               = true
   owned_by             = "9uz252oc2mi"
   dmr_enabled          = false
   mate_link_encryption = true
