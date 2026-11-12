@@ -1,4 +1,4 @@
-name: Event Portal - Config Push
+name: Deploy Event Portal Application
 run-name: Deploy to ${{ inputs.environment }} by @${{ github.actor }}
 
 on:
@@ -28,6 +28,11 @@ on:
         description: 'Application Domain ID'
         default: '3j896ggpxon'
         required: true
+      max_retries:
+        description: 'Optional: max retries of Terraform plan/apply after a failure (default 3, or the TF_APPLY_MAX_RETRIES repository variable)'
+        required: false
+        default: '3'
+        type: string
 concurrency:
   group: ci-solace-ep-deployment
   queue: max
@@ -42,7 +47,7 @@ env:
   SOLACE_CLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
   TF_LOG: 'DEBUG'
   SOLACEBROKER_RETRIES: 1
-  SOLACEBROKER_REQUEST_TIMEOUT_DURATION: 11m
+  SOLACEBROKER_REQUEST_TIMEOUT_DURATION: 10m
 
 permissions:
   id-token: write     # lets the job request the OIDC token
@@ -225,9 +230,41 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
           #
-          terraform apply -input=false -auto-approve tfplan
+          # Plan + apply. On failure: terraform destroy, then retry (up to MAX_RETRIES retries
+          # after the first attempt). The step fails when all retries are exhausted.
+          if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
+            echo "::error::max_retries must be a non-negative integer, got '$MAX_RETRIES'"
+            exit 1
+          fi
+          #
+          attempt=0
+          while true; do
+            echo "::group::Terraform plan/apply - attempt $((attempt + 1)) of $((MAX_RETRIES + 1))"
+            if terraform plan -input=false -out=tfplan && \
+               terraform apply -input=false -auto-approve tfplan; then
+              echo "::endgroup::"
+              echo "Terraform apply succeeded on attempt $((attempt + 1))"
+              break
+            fi
+            echo "::endgroup::"
+            echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1)); running terraform destroy"
+            #
+            if ! terraform destroy -input=false -auto-approve; then
+              echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
+              exit 1
+            fi
+            #
+            if [ "$attempt" -ge "$MAX_RETRIES" ]; then
+              echo "::error::Terraform apply failed after $((attempt + 1)) attempt(s) (max retries: $MAX_RETRIES)"
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "Retrying ($attempt of $MAX_RETRIES)..."
+          done
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         env:
+          # Max retries: workflow input, else repository variable TF_APPLY_MAX_RETRIES, else 3
+          MAX_RETRIES: ${{ inputs.max_retries || vars.TF_APPLY_MAX_RETRIES || '3' }}
           # Add your broker credentials as secrets
           #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
