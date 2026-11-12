@@ -53,3 +53,14 @@ import {
   to = solacecloud_connection_endpoint.ajcr-sandbox-primary_Default_Public
   id = "feg86kv3o2m/connectionEndpoints/h8bta2ve6n9"
 }
+
+resource "solacecloud_connection_endpoint_dns_name" "ajcr-sandbox-primary_Default_Public_dns_ajcr-test_messaging_solace_cloud" {
+  service_id             = solacecloud_service.ajcr-sandbox-primary.id
+  connection_endpoint_id = solacecloud_connection_endpoint.ajcr-sandbox-primary_Default_Public.id
+  dns_name               = "ajcr-test.messaging.solace.cloud"
+}
+
+import {
+  to = solacecloud_connection_endpoint_dns_name.ajcr-sandbox-primary_Default_Public_dns_ajcr-test_messaging_solace_cloud
+  id = "feg86kv3o2m/h8bta2ve6n9/ajcr-test.messaging.solace.cloud"
+}
