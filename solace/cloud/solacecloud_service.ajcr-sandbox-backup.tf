@@ -26,6 +26,9 @@ resource "solacecloud_connection_endpoint" "ajcr-sandbox-backup_Public_Endpoint"
     management_tls = {
       port = 943
     }
+    ssh_tls = {
+      port = 2222
+    }
     smf_tls = {
       port = 55443
     }
@@ -50,4 +53,15 @@ resource "solacecloud_connection_endpoint" "ajcr-sandbox-backup_Public_Endpoint"
 import {
   to = solacecloud_connection_endpoint.ajcr-sandbox-backup_Public_Endpoint
   id = "e4m97f023ea/connectionEndpoints/r3280oy2n09"
+}
+
+resource "solacecloud_connection_endpoint_dns_name" "ajcr-sandbox-backup_Public_Endpoint_dns_ajcr-sandbox02_messaging_solace_cloud" {
+  service_id             = solacecloud_service.ajcr-sandbox-backup.id
+  connection_endpoint_id = solacecloud_connection_endpoint.ajcr-sandbox-backup_Public_Endpoint.id
+  dns_name               = "ajcr-sandbox02.messaging.solace.cloud"
+}
+
+import {
+  to = solacecloud_connection_endpoint_dns_name.ajcr-sandbox-backup_Public_Endpoint_dns_ajcr-sandbox02_messaging_solace_cloud
+  id = "e4m97f023ea/r3280oy2n09/ajcr-sandbox02.messaging.solace.cloud"
 }
