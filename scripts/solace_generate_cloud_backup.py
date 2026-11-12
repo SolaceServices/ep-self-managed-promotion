@@ -173,29 +173,48 @@ def optional_attributes(v0, svc):
     return pairs
 
 
-def connection_endpoint_block(v0):
-    endpoints = v0.get("serviceConnectionEndpoints") or []
-    if not endpoints:
-        return []
-    ep = endpoints[0]
+def connection_endpoint_tf(ep, service_label, service_id, endpoint_label):
+    """solacecloud_connection_endpoint resource + import block for one v0 serviceConnectionEndpoints entry."""
     access = str(ep.get("accessType", "")).upper()
-    if not ep.get("name") or access not in ("PUBLIC", "PRIVATE"):
-        return []
-    pairs = [("name", hcl_str(ep["name"]))]
+    pairs = [("service_id", f"solacecloud_service.{service_label}.id"),
+             ("access_type", hcl_str(access)),
+             ("name", hcl_str(ep["name"]))]
     if ep.get("description"):
         pairs.append(("description", hcl_str(ep["description"])))
-    pairs.append(("access_type", hcl_str(access)))
-    lines = ["", "  connection_endpoint {", *hcl_attrs(pairs, "    ")]
+    lines = [f'resource "solacecloud_connection_endpoint" "{endpoint_label}" {{',
+             *hcl_attrs(pairs, "  "), ""]
     ports = [(key, ep["ports"][v0_name]) for v0_name, key in V0_PORT_KEYS.items()
              if isinstance((ep.get("ports") or {}).get(v0_name), int) and ep["ports"][v0_name] > 0]
     if ports:
-        lines.append("")
-        lines.append("    ports = {")
+        lines.append("  ports = {")
         for key, port in ports:
-            lines += [f"      {key} = {{", f"        port = {port}", "      }"]
-        lines.append("    }")
-    lines.append("  }")
+            lines += [f"    {key} = {{", f"      port = {port}", "    }"]
+        lines.append("  }")
+    else:
+        lines.append("  ports = {}")
+    lines += ["}", "",
+              "import {",
+              f"  to = solacecloud_connection_endpoint.{endpoint_label}",
+              f"  id = {hcl_str(f'{service_id}/connectionEndpoints/{ep['serviceConnectionEndpointId']}')}",
+              "}"]
     return lines
+
+
+def connection_endpoints_tf(v0, service_label, service_id):
+    """One resource per endpoint of the service, separated by blank lines."""
+    out, used = [], set()
+    for ep in v0.get("serviceConnectionEndpoints") or []:
+        if not (ep.get("name") and ep.get("serviceConnectionEndpointId")
+                and str(ep.get("accessType", "")).upper() in ("PUBLIC", "PRIVATE")):
+            print(f"WARNING: skipping connection endpoint of service {service_id}: "
+                  "missing name, id or access type.", file=sys.stderr)
+            continue
+        label = f"{service_label}_{tf_label(ep['name'])}"
+        if label in used:
+            label = f"{label}_{tf_label(ep['serviceConnectionEndpointId'])}"
+        used.add(label)
+        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label)]
+    return out
 
 
 def service_tf(svc, v0, label, public):
@@ -211,13 +230,13 @@ def service_tf(svc, v0, label, public):
         pairs.append(("environment_id", "data.solacecloud_environment.environment.id"))
     lines = [f'resource "solacecloud_service" "{label}" {{',
              *hcl_attrs(pairs, "  "),
-             *connection_endpoint_block(v0)]
-    lines.append("}")
-    lines.append("")
-    lines.append("import {")
-    lines.append(f"  to = solacecloud_service.{label}")
-    lines.append(f"  id = {hcl_str(svc['id'])}")
-    lines.append("}")
+             "}",
+             "",
+             "import {",
+             f"  to = solacecloud_service.{label}",
+             f"  id = {hcl_str(svc['id'])}",
+             "}",
+             *connection_endpoints_tf(v0, label, svc["id"])]
     return "\n".join(lines) + "\n"
 
 
