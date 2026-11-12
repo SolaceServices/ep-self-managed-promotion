@@ -1,5 +1,5 @@
 name: Deploy Event Portal Application
-run-name: Deploy to ${{ inputs.environment }} by @${{ github.actor }}
+run-name: Deploy App ${{ inputs.application_name }} to ${{ inputs.environment }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ on:
         default: '3j896ggpxon'
         required: true
       max_retries:
-        description: 'Optional: max retries of Terraform plan/apply after a failure (default 3, or the TF_APPLY_MAX_RETRIES repository variable)'
+        description: 'Max retries - Terraform Apply (Optional)'
         required: false
         default: '3'
         type: string
@@ -45,9 +45,6 @@ env:
   AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
   SOLACE_CLOUD_API_BASE: https://api.solace.cloud/api/v2/architecture
   SOLACE_CLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
-  TF_LOG: 'DEBUG'
-  SOLACEBROKER_RETRIES: 1
-  SOLACEBROKER_REQUEST_TIMEOUT_DURATION: 10m
 
 permissions:
   id-token: write     # lets the job request the OIDC token
