@@ -1,5 +1,5 @@
 resource "solacecloud_service" "AJCR_sandbox_backup" {
-  name                 = "AJCR_sandbox_backup"
+  name                 = "ajcr_sandbox_backup_01"
   datacenter_id        = "aks-eastus"
   service_class_id     = "ENTERPRISE_250_HIGHAVAILABILITY"
   event_broker_version = "10.25.0.148-27"
