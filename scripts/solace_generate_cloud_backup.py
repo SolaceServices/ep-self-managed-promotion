@@ -22,9 +22,10 @@ SERVICES_PATH = "/api/v2/missionControl/eventBrokerServices"
 V0_SERVICES_PATH = "/api/v0/services"
 
 # v0 connection endpoint port name -> `ports` key of the terraform connection_endpoint block.
-# Ports set to 0 (disabled) are skipped. Management (943) and SSH (2222) ports are not
-# user-configurable messaging ports, so they are intentionally not exported.
+# Ports set to 0 (disabled) are skipped.
 V0_PORT_KEYS = {
+    "serviceManagementTlsListenPort": "management_tls",
+    "managementSshTlsListenPort": "ssh_tls",
     "serviceSmfPlainTextListenPort": "smf",
     "serviceSmfTlsListenPort": "smf_tls",
     "serviceSmfCompressedListenPort": "smf_compressed",
