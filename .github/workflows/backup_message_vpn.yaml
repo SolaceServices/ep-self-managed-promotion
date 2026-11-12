@@ -37,10 +37,10 @@ jobs:
       MSG_VPN: ${{ matrix.msg-vpn }}
       RUN_TYPE: ${{ inputs.manual || false }}
       BACKUP_FOLDER: 'solace/${{ matrix.env }}/message-vpn/${{matrix.msg-vpn}}'
-      BACKUP_SOLACE_BROKER_HOSTNAME: ${{ secrets.BACKUP_SOLACE_BROKER_HOSTNAME }}
-      BACKUP_SOLACE_BROKER_PORT: ${{ secrets.BACKUP_SOLACE_BROKER_PORT }}
+      BACKUP_SOLACE_BROKER_HOSTNAME: ${{ vars.BACKUP_SOLACE_BROKER_HOSTNAME }}
+      BACKUP_SOLACE_BROKER_PORT: ${{ vars.BACKUP_SOLACE_BROKER_PORT }}
       # read-only SEMP user
-      BACKUP_SOLACE_BROKER_USERNAME: ${{ secrets.BACKUP_SOLACE_BROKER_USERNAME }}
+      BACKUP_SOLACE_BROKER_USERNAME: ${{ vars.BACKUP_SOLACE_BROKER_USERNAME }}
       BACKUP_SOLACE_BROKER_PASSWORD: ${{ secrets.BACKUP_SOLACE_BROKER_PASSWORD }}
 
     steps:

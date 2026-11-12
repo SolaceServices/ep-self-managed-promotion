@@ -1,5 +1,5 @@
 name: Deploy Event Portal Application
-run-name: Deploy to ${{ inputs.environment }} by @${{ github.actor }}
+run-name: Deploy App ${{ inputs.application_name }} to ${{ inputs.environment }} by @${{ github.actor }}
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ on:
         default: '3j896ggpxon'
         required: true
       max_retries:
-        description: 'Optional: max retries of Terraform plan/apply after a failure (default 3, or the TF_APPLY_MAX_RETRIES repository variable)'
+        description: 'Max retries - Terraform Apply (Optional)'
         required: false
         default: '3'
         type: string
@@ -45,9 +45,6 @@ env:
   AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
   SOLACE_CLOUD_API_BASE: https://api.solace.cloud/api/v2/architecture
   SOLACE_CLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
-  TF_LOG: 'DEBUG'
-  SOLACEBROKER_RETRIES: 1
-  SOLACEBROKER_REQUEST_TIMEOUT_DURATION: 10m
 
 permissions:
   id-token: write     # lets the job request the OIDC token
@@ -205,24 +202,11 @@ jobs:
           APP_NAME: ${{ env.APP_NAME }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}       
+          TF_VAR_url: ${{ vars.DEPLOYMENT_BROKER_URL }}
+          TF_VAR_username: ${{ vars.DEPLOYMENT_BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.DEPLOYMENT_BROKER_PASSWORD }}
 
-
-      - name: Generate Terraform Plan
-        run:  |
-          terraform plan -input=false -out=tfplan 
-          if [[ "$ACTIONS_STEP_DEBUG" == "true" ]]; then
-            ls -las
-          fi
-        working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
-        env:
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
-
-      - name: Terraform Apply
+      - name: Generate Terraform Plan and Apply
         run: |
           curl -s -X PUT \
             "${{ env.SOLACE_CLOUD_API_BASE }}/runtimeManagement/applicationConfigurationPushJobs/${{ steps.get_job_id.outputs.job_id }}/status" \
@@ -269,9 +253,9 @@ jobs:
           #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           #AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
+          TF_VAR_url: ${{ vars.DEPLOYMENT_BROKER_URL }}
+          TF_VAR_username: ${{ vars.DEPLOYMENT_BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.DEPLOYMENT_BROKER_PASSWORD }}          
 
       - name: Commit and push
         id: commit-and-push
@@ -281,6 +265,8 @@ jobs:
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+         git update-ref -d refs/remotes/origin/${{ github.ref_name }}
+         git pull
          # add required files - app, .gitignore and last run
          git add application_config.tf
          # make sure we dont upload the unnecessary files 
