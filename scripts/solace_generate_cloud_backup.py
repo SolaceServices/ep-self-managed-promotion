@@ -201,6 +201,27 @@ def connection_endpoint_tf(ep, service_label, service_id, endpoint_label):
     return lines
 
 
+def dns_names_tf(ep, service_label, service_id, endpoint_label):
+    """solacecloud_connection_endpoint_dns_name resources + imports for the custom hostnames of an endpoint.
+    The Solace-provided default hostname (mr-connection-<endpoint id>.*) cannot be managed/deleted, so it is skipped."""
+    endpoint_id = ep["serviceConnectionEndpointId"]
+    out = []
+    for host in ep.get("hostNames") or []:
+        if host.startswith(f"mr-connection-{endpoint_id}."):
+            continue
+        label = f"{endpoint_label}_dns_{tf_label(host)}"
+        pairs = [("service_id", f"solacecloud_service.{service_label}.id"),
+                 ("connection_endpoint_id", f"solacecloud_connection_endpoint.{endpoint_label}.id"),
+                 ("dns_name", hcl_str(host))]
+        out += ["", f'resource "solacecloud_connection_endpoint_dns_name" "{label}" {{',
+                *hcl_attrs(pairs, "  "), "}", "",
+                "import {",
+                f"  to = solacecloud_connection_endpoint_dns_name.{label}",
+                f"  id = {hcl_str(f'{service_id}/{endpoint_id}/{host}')}",
+                "}"]
+    return out
+
+
 def connection_endpoints_tf(v0, service_label, service_id):
     """One resource per endpoint of the service, separated by blank lines."""
     out, used = [], set()
@@ -214,7 +235,8 @@ def connection_endpoints_tf(v0, service_label, service_id):
         if label in used:
             label = f"{label}_{tf_label(ep['serviceConnectionEndpointId'])}"
         used.add(label)
-        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label)]
+        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label),
+                *dns_names_tf(ep, service_label, service_id, label)]
     return out
 
 
