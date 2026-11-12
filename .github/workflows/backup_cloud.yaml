@@ -19,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: ci-solace-backup_broker
+  group: ci-solace-backup_cloud
   cancel-in-progress: true
 jobs:
   solace-cloud-services-terraform-backup:
