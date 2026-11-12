@@ -19,6 +19,27 @@ import requests
 
 API_BASE = "https://api.solace.cloud"
 SERVICES_PATH = "/api/v2/missionControl/eventBrokerServices"
+V0_SERVICES_PATH = "/api/v0/services"
+
+# v0 connection endpoint port name -> `ports` key of the terraform connection_endpoint block.
+# Ports set to 0 (disabled) are skipped.
+V0_PORT_KEYS = {
+    "serviceManagementTlsListenPort": "management_tls",
+    "managementSshTlsListenPort": "ssh_tls",
+    "serviceSmfPlainTextListenPort": "smf",
+    "serviceSmfTlsListenPort": "smf_tls",
+    "serviceSmfCompressedListenPort": "smf_compressed",
+    "serviceMqttPlainTextListenPort": "mqtt",
+    "serviceMqttTlsListenPort": "mqtt_tls",
+    "serviceMqttWebSocketListenPort": "mqtt_websocket",
+    "serviceMqttTlsWebSocketListenPort": "mqtt_websocket_tls",
+    "serviceAmqpPlainTextListenPort": "amqp",
+    "serviceAmqpTlsListenPort": "amqp_tls",
+    "serviceRestIncomingPlainTextListenPort": "rest_incoming",
+    "serviceRestIncomingTlsListenPort": "rest_incoming_tls",
+    "serviceWebPlainTextListenPort": "web",
+    "serviceWebTlsListenPort": "web_tls",
+}
 PAGE_SIZE = 100
 TIMEOUT = 60
 
@@ -105,24 +126,118 @@ data "solacecloud_environment" "environment" {{
     return out
 
 
-def service_tf(svc, label, public):
-    lines = [f'resource "solacecloud_service" "{label}" {{',
-             f'  name             = {hcl_str(svc["name"])}',
-             f'  datacenter_id    = {hcl_str(svc["datacenterId"])}']
+def fetch_v0_service(session, base_url, service_id):
+    """Legacy v0 service details (spool size, DMR cluster, mate link encryption, endpoints...).
+    Returns {} and warns when unavailable so the base attributes are still generated."""
+    try:
+        return api_get(session, base_url, f"{V0_SERVICES_PATH}/{service_id}").get("data", {})
+    except requests.RequestException as e:
+        print(f"WARNING: could not read v0 details of service {service_id} ({e}); "
+              "optional attributes will be omitted.", file=sys.stderr)
+        return {}
+
+
+def hcl_value(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    return hcl_str(value)
+
+
+def hcl_attrs(pairs, indent):
+    """Render (key, value) pairs as aligned `key = value` lines (value None = raw expression already set)."""
+    width = max(len(k) for k, _ in pairs)
+    return [f"{indent}{k.ljust(width)} = {v}" for k, v in pairs]
+
+
+def optional_attributes(v0, svc):
+    """Map the v0 response to optional solacecloud_service arguments, as (key, hcl_value) pairs."""
+    pairs = []
+    spool = v0.get("messagingStorage")  # GB
+    if isinstance(spool, int) and 10 <= spool <= 6000:
+        pairs.append(("max_spool_usage", hcl_value(spool)))
+    if isinstance(v0.get("locked"), bool):
+        pairs.append(("locked", hcl_value(v0["locked"])))
+    owner = svc.get("ownedBy") or v0.get("userId")
+    if owner:
+        pairs.append(("owned_by", hcl_value(owner)))
+    if v0:
+        cluster = v0.get("cluster")
+        pairs.append(("dmr_enabled", hcl_value(bool(cluster))))
+        if cluster and cluster.get("name"):
+            pairs.append(("cluster_name", hcl_value(cluster["name"])))
+    # mate link encryption is only accepted by HA services
+    if str(svc.get("serviceClassId", "")).endswith("_HIGHAVAILABILITY") \
+            and isinstance(v0.get("redundancyGroupSslEnabled"), bool):
+        pairs.append(("mate_link_encryption", hcl_value(v0["redundancyGroupSslEnabled"])))
+    return pairs
+
+
+def connection_endpoint_tf(ep, service_label, service_id, endpoint_label):
+    """solacecloud_connection_endpoint resource + import block for one v0 serviceConnectionEndpoints entry."""
+    access = str(ep.get("accessType", "")).upper()
+    pairs = [("service_id", f"solacecloud_service.{service_label}.id"),
+             ("access_type", hcl_str(access)),
+             ("name", hcl_str(ep["name"]))]
+    if ep.get("description"):
+        pairs.append(("description", hcl_str(ep["description"])))
+    lines = [f'resource "solacecloud_connection_endpoint" "{endpoint_label}" {{',
+             *hcl_attrs(pairs, "  "), ""]
+    ports = [(key, ep["ports"][v0_name]) for v0_name, key in V0_PORT_KEYS.items()
+             if isinstance((ep.get("ports") or {}).get(v0_name), int) and ep["ports"][v0_name] > 0]
+    if ports:
+        lines.append("  ports = {")
+        for key, port in ports:
+            lines += [f"    {key} = {{", f"      port = {port}", "    }"]
+        lines.append("  }")
+    else:
+        lines.append("  ports = {}")
+    lines += ["}", "",
+              "import {",
+              f"  to = solacecloud_connection_endpoint.{endpoint_label}",
+              f"  id = {hcl_str(f'{service_id}/connectionEndpoints/{ep['serviceConnectionEndpointId']}')}",
+              "}"]
+    return lines
+
+
+def connection_endpoints_tf(v0, service_label, service_id):
+    """One resource per endpoint of the service, separated by blank lines."""
+    out, used = [], set()
+    for ep in v0.get("serviceConnectionEndpoints") or []:
+        if not (ep.get("name") and ep.get("serviceConnectionEndpointId")
+                and str(ep.get("accessType", "")).upper() in ("PUBLIC", "PRIVATE")):
+            print(f"WARNING: skipping connection endpoint of service {service_id}: "
+                  "missing name, id or access type.", file=sys.stderr)
+            continue
+        label = f"{service_label}_{tf_label(ep['name'])}"
+        if label in used:
+            label = f"{label}_{tf_label(ep['serviceConnectionEndpointId'])}"
+        used.add(label)
+        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label)]
+    return out
+
+
+def service_tf(svc, v0, label, public):
+    pairs = [("name", hcl_str(svc["name"])), ("datacenter_id", hcl_str(svc["datacenterId"]))]
     if svc.get("serviceClassId"):
-        lines.append(f'  service_class_id = {hcl_str(svc["serviceClassId"])}')
+        pairs.append(("service_class_id", hcl_str(svc["serviceClassId"])))
     if svc.get("eventBrokerServiceVersion"):
-        lines.append(f'  event_broker_version = {hcl_str(svc["eventBrokerServiceVersion"])}')
+        pairs.append(("event_broker_version", hcl_str(svc["eventBrokerServiceVersion"])))
     if svc.get("msgVpnName"):
-        lines.append(f'  message_vpn_name = {hcl_str(svc["msgVpnName"])}')
+        pairs.append(("message_vpn_name", hcl_str(svc["msgVpnName"])))
+    pairs.extend(optional_attributes(v0, svc))
     if public:
-        lines.append('  environment_id   = data.solacecloud_environment.environment.id')
-    lines.append("}")
-    lines.append("")
-    lines.append("import {")
-    lines.append(f"  to = solacecloud_service.{label}")
-    lines.append(f"  id = {hcl_str(svc['id'])}")
-    lines.append("}")
+        pairs.append(("environment_id", "data.solacecloud_environment.environment.id"))
+    lines = [f'resource "solacecloud_service" "{label}" {{',
+             *hcl_attrs(pairs, "  "),
+             "}",
+             "",
+             "import {",
+             f"  to = solacecloud_service.{label}",
+             f"  id = {hcl_str(svc['id'])}",
+             "}",
+             *connection_endpoints_tf(v0, label, svc["id"])]
     return "\n".join(lines) + "\n"
 
 
@@ -174,7 +289,7 @@ def main():
                 label = f"{label}_{tf_label(detail['id'])}"
             used_labels.add(label)
             path = out_dir / file_name(label)
-            path.write_text(service_tf(detail, label, args.public), encoding="utf-8", newline="\n")
+            path.write_text(service_tf(detail, fetch_v0_service(session, args.base_url, detail["id"]), label, args.public), encoding="utf-8", newline="\n")
             print(f"Wrote {path}")
     except requests.HTTPError as e:
         sys.exit(f"ERROR: API call failed: {e.response.status_code} {e.response.text[:300]}")

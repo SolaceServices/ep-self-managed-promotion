@@ -1,4 +1,4 @@
-name: Backup Cloud Broker (CLI)
+name: Backup Solace Cloud Services
 on:
   schedule:
     # 22:10 NY, everyday
@@ -13,7 +13,7 @@ on:
         type: boolean
 
 permissions:
-  # id-token: write
+  id-token: write
   # needed for actions/checkout
   contents: write
   issues: write
@@ -94,8 +94,6 @@ jobs:
       - name: Terraform Init
         working-directory: ./solace/cloud
         run: |
-      - name: Terraform Init
-        run: |
           #
           terraform init \
             -backend-config="bucket=$AWS_BUCKET_NAME" \
@@ -115,28 +113,6 @@ jobs:
         run: |
             terraform apply -input=false -auto-approve tfplan
 
-      - name: Create Full tf files
-        working-directory: ./solace/cloud
-        run: |
-            shopt -s nullglob
-            #
-            for file in *.tf; do
-                case "$file" in
-                    provider.tf|terraform-backend.tf) continue ;;
-                esac
-            
-                name="${file%.tf}"
-                echo "=== terraform state show $name ==="
-                terraform state show "$name"  > "$name-full.tf"
-            done
-            for file in *.tf; do
-                case "$file" in
-                    provider.tf|terraform-backend.tf|*full*) continue ;;
-                esac
-            
-                echo "Deleting $file"
-                rm -f -- "$file"
-            done
 
       - name: Commit and push
         id: commit-and-push
