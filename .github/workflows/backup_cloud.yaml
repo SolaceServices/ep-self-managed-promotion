@@ -113,30 +113,6 @@ jobs:
         run: |
             terraform apply -input=false -auto-approve tfplan
 
-      - name: Create Full tf files
-        working-directory: ./solace/cloud
-        run: |
-            shopt -s nullglob
-            #
-            for file in *.tf; do
-                case "$file" in
-                    provider.tf|terraform-backend.tf|-full.tf) continue ;;
-                esac
-                name="${file%.tf}"
-                #
-
-                #
-                echo "=== terraform state show $name ==="
-                if out=$(terraform state show "$name" 2>&1); then
-                    printf '%s\n' "$out" > "$name-full.txt"
-                    echo "=== Deleting $file ==="
-                    rm -f -- "$file"
-                    mv "$name-full.txt" "$name.tf"
-                else
-                    echo "Failed: $name" >&2
-                fi
-            done
-          
 
       - name: Commit and push
         id: commit-and-push
