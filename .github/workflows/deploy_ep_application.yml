@@ -205,9 +205,9 @@ jobs:
           APP_NAME: ${{ env.APP_NAME }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}       
+          TF_VAR_url: ${{ vars.DEPLOYMENT_BROKER_URL }}
+          TF_VAR_username: ${{ vars.DEPLOYMENT_BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.DEPLOYMENT_BROKER_PASSWORD }}
 
 
       - name: Generate Terraform Plan
@@ -218,9 +218,9 @@ jobs:
           fi
         working-directory: ${{ steps.setup.outputs.TERRAFORM_FOLDER }}
         env:
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
+          TF_VAR_url: ${{ vars.DEPLOYMENT_BROKER_URL }}
+          TF_VAR_username: ${{ vars.DEPLOYMENT_BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.DEPLOYMENT_BROKER_PASSWORD }}
 
       - name: Terraform Apply
         run: |
@@ -269,9 +269,9 @@ jobs:
           #AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           #AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           #AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-          TF_VAR_url: ${{ secrets.BROKER_URL }}
-          TF_VAR_username: ${{ secrets.BROKER_USERNAME }}
-          TF_VAR_password: ${{ secrets.BROKER_PASSWORD }}          
+          TF_VAR_url: ${{ vars.DEPLOYMENT_BROKER_URL }}
+          TF_VAR_username: ${{ vars.DEPLOYMENT_BROKER_USERNAME }}
+          TF_VAR_password: ${{ secrets.DEPLOYMENT_BROKER_PASSWORD }}          
 
       - name: Commit and push
         id: commit-and-push
