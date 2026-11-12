@@ -268,6 +268,8 @@ jobs:
          #
          git config user.name  "github-actions[bot]"
          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+         git update-ref -d refs/remotes/origin/${{ github.ref_name }}
+         git pull
          # add required files - app, .gitignore and last run
          git add application_config.tf
          # make sure we dont upload the unnecessary files 
