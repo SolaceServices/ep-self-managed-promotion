@@ -10,6 +10,7 @@ resource "solacecloud_service" "AJCR_sandbox_primary" {
   dmr_enabled          = true
   cluster_name         = "cluster-eks-ca-central-1a-foeb97bgnth"
   mate_link_encryption = true
+  environment_id       = "jz2r4v8v5rg"
 }
 
 import {
