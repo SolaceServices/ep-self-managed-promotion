@@ -26,6 +26,9 @@ resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Public_Endpoint"
     management_tls = {
       port = 943
     }
+    ssh_tls = {
+      port = 2222
+    }
     smf_tls = {
       port = 55443
     }
