@@ -53,7 +53,7 @@ ip
 
 ! Configure ip vrf: "msg-backbone"
 
-! Configure SEMP Service: 
+! Configure SEMP Service:
 service semp shutdown plain-text
 service semp listen-port 8080
 service semp shutdown ssl
