@@ -2,32 +2,32 @@ resource "solacecloud_service" "AJCR_sandbox_backup" {
   name                 = "AJCR_sandbox_backup"
   datacenter_id        = "aks-eastus"
   service_class_id     = "ENTERPRISE_250_HIGHAVAILABILITY"
-  event_broker_version = "10.25.0.148-27"
+  event_broker_version = "10.26.0.9219-22"
   message_vpn_name     = "sandbox"
   max_spool_usage      = 50
   locked               = true
   owned_by             = "9uz252oc2mi"
-  dmr_enabled          = true
-  cluster_name         = "cluster-aks-eastus-second-dc-54bars4cq0a"
-  mate_link_encryption = false
+  dmr_enabled          = false
+  mate_link_encryption = true
+  environment_id       = "56hf9w4m179"
 }
 
 import {
   to = solacecloud_service.AJCR_sandbox_backup
-  id = "93d9izy96vf"
+  id = "fbvqj8rqqtu"
 }
 
-resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Default_Public" {
+resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Public_Endpoint" {
   service_id  = solacecloud_service.AJCR_sandbox_backup.id
   access_type = "PUBLIC"
-  name        = "Default Public"
+  name        = "Public Endpoint"
 
   ports = {
     management_tls = {
       port = 943
     }
     ssh_tls = {
-      port = 22
+      port = 2222
     }
     smf_tls = {
       port = 55443
@@ -51,6 +51,17 @@ resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Default_Public" 
 }
 
 import {
-  to = solacecloud_connection_endpoint.AJCR_sandbox_backup_Default_Public
-  id = "93d9izy96vf/connectionEndpoints/9koibx6n967"
+  to = solacecloud_connection_endpoint.AJCR_sandbox_backup_Public_Endpoint
+  id = "fbvqj8rqqtu/connectionEndpoints/imwxavuxc2g"
+}
+
+resource "solacecloud_connection_endpoint_dns_name" "AJCR_sandbox_backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud" {
+  service_id             = solacecloud_service.AJCR_sandbox_backup.id
+  connection_endpoint_id = solacecloud_connection_endpoint.AJCR_sandbox_backup_Public_Endpoint.id
+  dns_name               = "ajcr-sandbox-backup.messaging.solace.cloud"
+}
+
+import {
+  to = solacecloud_connection_endpoint_dns_name.AJCR_sandbox_backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud
+  id = "fbvqj8rqqtu/imwxavuxc2g/ajcr-sandbox-backup.messaging.solace.cloud"
 }

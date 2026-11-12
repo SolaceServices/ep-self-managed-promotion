@@ -2,7 +2,8 @@
 """Generate Terraform files (solacecloud provider) from existing Solace Cloud services.
 
 Reads the services of the account through the Mission Control API and writes:
-  - provider.tf               : terraform / provider configuration (+ environment data source when --public)
+  - provider.tf               : terraform / provider configuration (never overwritten if it exists)
+  - with --public, each service file also declares the data "solacecloud_environment" of its own environment
   - solacecloud_service.<service-name>.tf : one file per service with the resource and an import block
 
 The API token is passed with --token, or read from the SOLACECLOUD_API_TOKEN environment variable
@@ -20,6 +21,7 @@ import requests
 API_BASE = "https://api.solace.cloud"
 SERVICES_PATH = "/api/v2/missionControl/eventBrokerServices"
 V0_SERVICES_PATH = "/api/v0/services"
+ENVIRONMENTS_PATH = "/api/v2/missionControl/environments"
 
 # v0 connection endpoint port name -> `ports` key of the terraform connection_endpoint block.
 # Ports set to 0 (disabled) are skipped.
@@ -53,12 +55,11 @@ def parse_args():
                    help="Solace Cloud API token used to query the account. "
                         "Falls back to the SOLACECLOUD_API_TOKEN environment variable.")
     p.add_argument("--public", action="store_true",
-                   help="Brokers are in a public region: add a solacecloud_environment data source "
-                        "and set environment_id on each service. Omitted entirely otherwise.")
+                   help="Brokers are in a public region: for each service, look up its environment "
+                        "and add a solacecloud_environment data source plus environment_id. "
+                        "Omitted entirely otherwise.")
     p.add_argument("--services", default="",
                    help="Comma separated list of service names to export. Empty = all services.")
-    p.add_argument("--environment-name", default="Default",
-                   help="Environment name used by the data source when --public is set (default: Default).")
     p.add_argument("--base-url", default=API_BASE,
                    help=f"Solace Cloud API base URL (default: {API_BASE}).")
     p.add_argument("--repo-root", default=str(DEFAULT_REPO_ROOT),
@@ -103,8 +104,31 @@ def file_name(name):
     return f"solacecloud_service.{re.sub(r'[^A-Za-z0-9._-]', '_', name)}.tf"
 
 
-def provider_tf(base_url, public, env_name):
-    out = f"""terraform {{
+def fetch_environment_name(session, base_url, env_id, cache):
+    """Name of an environment (cached per id). Returns None and warns when it cannot be resolved."""
+    if env_id not in cache:
+        try:
+            body = api_get(session, base_url, f"{ENVIRONMENTS_PATH}/{env_id}")
+            data = body.get("data", body)
+            cache[env_id] = data.get("name")
+        except requests.RequestException as e:
+            print(f"WARNING: could not read environment {env_id} ({e}).", file=sys.stderr)
+            cache[env_id] = None
+        if not cache[env_id]:
+            print(f"WARNING: no name found for environment {env_id}; using the literal environment id.",
+                  file=sys.stderr)
+    return cache[env_id]
+
+
+def environment_data_tf(env_label, env_name):
+    return [f'data "solacecloud_environment" "{env_label}" {{',
+            f"  name = {hcl_str(env_name)}",
+            "}",
+            ""]
+
+
+def provider_tf(base_url):
+    return f"""terraform {{
   required_providers {{
     solacecloud = {{
       source = "solaceproducts/solacecloud"
@@ -117,13 +141,6 @@ provider "solacecloud" {{
   base_url = {hcl_str(base_url.rstrip('/') + '/')}
 }}
 """
-    if public:
-        out += f"""
-data "solacecloud_environment" "environment" {{
-  name = {hcl_str(env_name)}
-}}
-"""
-    return out
 
 
 def fetch_v0_service(session, base_url, service_id):
@@ -201,6 +218,27 @@ def connection_endpoint_tf(ep, service_label, service_id, endpoint_label):
     return lines
 
 
+def dns_names_tf(ep, service_label, service_id, endpoint_label):
+    """solacecloud_connection_endpoint_dns_name resources + imports for the custom hostnames of an endpoint.
+    The Solace-provided default hostname (mr-connection-<endpoint id>.*) cannot be managed/deleted, so it is skipped."""
+    endpoint_id = ep["serviceConnectionEndpointId"]
+    out = []
+    for host in ep.get("hostNames") or []:
+        if host.startswith(f"mr-connection-{endpoint_id}."):
+            continue
+        label = f"{endpoint_label}_dns_{tf_label(host)}"
+        pairs = [("service_id", f"solacecloud_service.{service_label}.id"),
+                 ("connection_endpoint_id", f"solacecloud_connection_endpoint.{endpoint_label}.id"),
+                 ("dns_name", hcl_str(host))]
+        out += ["", f'resource "solacecloud_connection_endpoint_dns_name" "{label}" {{',
+                *hcl_attrs(pairs, "  "), "}", "",
+                "import {",
+                f"  to = solacecloud_connection_endpoint_dns_name.{label}",
+                f"  id = {hcl_str(f'{service_id}/{endpoint_id}/{host}')}",
+                "}"]
+    return out
+
+
 def connection_endpoints_tf(v0, service_label, service_id):
     """One resource per endpoint of the service, separated by blank lines."""
     out, used = [], set()
@@ -214,11 +252,15 @@ def connection_endpoints_tf(v0, service_label, service_id):
         if label in used:
             label = f"{label}_{tf_label(ep['serviceConnectionEndpointId'])}"
         used.add(label)
-        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label)]
+        out += ["", *connection_endpoint_tf(ep, service_label, service_id, label),
+                *dns_names_tf(ep, service_label, service_id, label)]
     return out
 
 
-def service_tf(svc, v0, label, public):
+def service_tf(svc, v0, label, env_id=None, env_name=None):
+    """Public regions: with env_name a data source lookup is generated and referenced; with only env_id
+    the literal id is written; with neither environment_id is omitted."""
+    env_label = f"{label}_environment"
     pairs = [("name", hcl_str(svc["name"])), ("datacenter_id", hcl_str(svc["datacenterId"]))]
     if svc.get("serviceClassId"):
         pairs.append(("service_class_id", hcl_str(svc["serviceClassId"])))
@@ -227,9 +269,12 @@ def service_tf(svc, v0, label, public):
     if svc.get("msgVpnName"):
         pairs.append(("message_vpn_name", hcl_str(svc["msgVpnName"])))
     pairs.extend(optional_attributes(v0, svc))
-    if public:
-        pairs.append(("environment_id", "data.solacecloud_environment.environment.id"))
-    lines = [f'resource "solacecloud_service" "{label}" {{',
+    if env_name:
+        pairs.append(("environment_id", f"data.solacecloud_environment.{env_label}.id"))
+    elif env_id:
+        pairs.append(("environment_id", hcl_str(env_id)))
+    lines = [*(environment_data_tf(env_label, env_name) if env_name else []),
+             f'resource "solacecloud_service" "{label}" {{',
              *hcl_attrs(pairs, "  "),
              "}",
              "",
@@ -277,10 +322,10 @@ def main():
         if provider_path.exists():
             print(f"Skipping {provider_path}: file already exists, not overwriting.")
         else:
-            provider_path.write_text(provider_tf(args.base_url, args.public, args.environment_name),
-                                     encoding="utf-8", newline="\n")
+            provider_path.write_text(provider_tf(args.base_url), encoding="utf-8", newline="\n")
             print(f"Wrote {provider_path}")
 
+        env_names = {}
         used_labels = set()
         for summary in selected:
             detail = api_get(session, args.base_url, f"{SERVICES_PATH}/{summary['id']}")["data"]
@@ -289,7 +334,16 @@ def main():
                 label = f"{label}_{tf_label(detail['id'])}"
             used_labels.add(label)
             path = out_dir / file_name(label)
-            path.write_text(service_tf(detail, fetch_v0_service(session, args.base_url, detail["id"]), label, args.public), encoding="utf-8", newline="\n")
+            env_id = env_name = None
+            if args.public:
+                env_id = detail.get("environmentId")
+                if env_id:
+                    env_name = fetch_environment_name(session, args.base_url, env_id, env_names)
+                else:
+                    print(f"WARNING: service '{detail['name']}' has no environmentId; "
+                          "environment_id will be omitted.", file=sys.stderr)
+            v0 = fetch_v0_service(session, args.base_url, detail["id"])
+            path.write_text(service_tf(detail, v0, label, env_id, env_name), encoding="utf-8", newline="\n")
             print(f"Wrote {path}")
     except requests.HTTPError as e:
         sys.exit(f"ERROR: API call failed: {e.response.status_code} {e.response.text[:300]}")

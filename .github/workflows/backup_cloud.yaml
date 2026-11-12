@@ -19,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: ci-solace-backup_broker
+  group: ci-solace-backup_cloud
   cancel-in-progress: true
 jobs:
   solace-cloud-services-terraform-backup:
@@ -29,6 +29,7 @@ jobs:
       RUN_TYPE: ${{ inputs.manual || false }}
       SOLACECLOUD_API_TOKEN: ${{ secrets.SOLACE_CLOUD_API_TOKEN }}
       SOLACE_CLOUD_SERVICES: ${{ vars.SOLACE_CLOUD_SERVICES }}
+      SOLACE_CLOUD_IS_PUBLIC_FLAG: ${{ vars.SOLACE_CLOUD_IS_PUBLIC_FLAG }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -51,7 +52,7 @@ jobs:
       - name: "Get Solace Cloud Backup - manual-process='${{env.RUN_TYPE}}'"
         working-directory: ./scripts
         run: |
-            python solace_generate_cloud_backup.py --services="$SOLACE_CLOUD_SERVICES" --repo-root=./../ 
+            python solace_generate_cloud_backup.py --services="$SOLACE_CLOUD_SERVICES" --repo-root=./../ $SOLACE_CLOUD_IS_PUBLIC_FLAG
             #
             current_dir=$(pwd)
             echo "Current dir: $current_dir"
