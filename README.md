@@ -96,6 +96,105 @@ The CLI backups connect over SSH with a **read-only** SEMP user (see [scripts/RE
 cloud backup calls the Solace Cloud REST APIs, generates Terraform and imports the services into the Terraform state.
 See [solace/README.md](solace/README.md) for the layout of the generated files.
 
+There are three kinds of backup. They have **different purposes**, so choose the right one when you need to
+inspect or restore something:
+
+| Backup | File(s) | Contains | Purpose |
+|--------|---------|----------|---------|
+| Cloud services (Terraform) | `solace/cloud/*.tf` + state in S3 | The Solace Cloud services, their connection endpoints and DNS names | Inspect status and **recreate the services** with `terraform apply` |
+| Whole broker (CLI) | `solace/<env>/broker.cli` | Everything on the broker, as Solace CLI commands (`show current-config all redact`) | **Reference/audit backup only. Not meant to rebuild a broker.** |
+| Message VPN (CLI) | `solace/<env>/message-vpn/<vpn>/<vpn>.cli` (for example `sandbox.cli`) | Only the configuration of that one Message VPN (`show current-config message-vpn <vpn> redact`) | **Restore the Message VPN configuration** |
+
+### Cloud services backup (`solace/cloud/*.tf`)
+
+The Terraform in `solace/cloud/` imports the services that exist today into a Terraform state file stored in the S3
+bucket (key `solace/cloud/terraform.tfstate`, see [Terraform state and backend](#terraform-state-and-backend)).
+Each `solacecloud_service.<name>.tf` file has the resource definition plus an `import` block, so the state holds
+the complete, current status of every service. Because the state and the `.tf` files describe the same services,
+Terraform can both report on them and recreate them.
+
+Typical operations (run from `solace/cloud/`, after `terraform init` with the S3 backend, using the same
+`-backend-config` values as `backup_cloud.yaml`, and with `SOLACECLOUD_API_TOKEN` set):
+
+```bash
+terraform init \
+  -backend-config="bucket=<AWS_BUCKET_NAME>" \
+  -backend-config="key=solace/cloud/terraform.tfstate" \
+  -backend-config="region=<AWS_REGION>"
+
+terraform state list      # services and objects tracked in state
+terraform show            # full recorded status/attributes of each service
+terraform plan            # drift between the .tf files / state and what exists in Solace Cloud
+terraform apply           # recreate missing services, or bring them back to the backed-up definition
+```
+
+Notes:
+
+- The `backup_cloud.yaml` workflow runs `plan` and `apply` every night, so the state is refreshed daily. Only the
+  `*.tf` files are committed; the state lives **only** in S3 (bucket versioning lets you recover older state).
+- `terraform apply` creates a **new** service if the original was deleted, so identifiers that Solace Cloud assigns
+  (service id, generated hostnames) can differ from the original. Review `terraform plan` before applying.
+- This restores the **service** (broker instance). The broker's internal configuration (Message VPNs, queues,
+  ACLs, users) is not part of it. Restore that from the CLI backups below or redeploy it with the Event Portal
+  deployment workflow.
+
+### Whole broker CLI backup (`broker.cli`)
+
+`solace/<env>/broker.cli` is the output of the Solace CLI command `show current-config all redact` for the whole
+broker. It records every setting, so it is useful to review what changed between two days (it is committed to git,
+so `git diff` / `git log` show the history) or to look up a setting.
+
+> **It is a backup for reference only. It is not intended to recreate a broker.** It contains configuration that
+> belongs to the service itself (system and hardware level settings, certificates and values that are redacted),
+> and it was not generated to be replayed on a new broker. To rebuild a broker, recreate the service from the
+> Terraform in `solace/cloud/` and then restore the Message VPNs from the per-VPN files.
+
+### Message VPN CLI backup (`<vpn>.cli`, for example `sandbox.cli`)
+
+The file named after the VPN, such as `solace/development/message-vpn/sandbox/sandbox.cli`, contains the same kind
+of information as `broker.cli`, but **only for that Message VPN** (`show current-config message-vpn <vpn> redact`).
+It is a subset of `broker.cli`. Use it to restore the configuration of that Message VPN.
+
+To restore:
+
+1. Make sure the Message VPN's broker is reachable, and you have an SSH/CLI user with enough rights to change
+   configuration. The nightly backup user is **read-only**, so use an administrator user for the restore.
+2. Connect to the broker CLI:
+   ```bash
+   ssh <admin-user>@<broker-hostname> -p <ssh-port>
+   ```
+3. Enter configuration mode:
+   ```
+   solace> enable
+   solace# configure
+   ```
+4. Paste the commands from `<vpn>.cli` (or the part you need) into the session. Review them first: remove the
+   lines that only display output and anything you do not want to change.
+5. Check the result, for example with `show message-vpn <vpn>` and `show current-config message-vpn <vpn>`, and
+   compare it with the backup file.
+
+> **Redacted values.** Backups are taken with `redact`, so passwords and other secrets are masked in the files.
+> After a restore you must **set them again** (for example client usernames' passwords, bridge and replication
+> credentials, and certificate or authentication secrets). The values are not stored in this repository.
+
+### Requirements for the CLI backups and restores
+
+To take a CLI backup (and to restore one), the broker's **CLI management (SSH) port must be open and reachable**
+from the machine that runs the commands. For the scheduled backups that machine is the **GitHub Actions runner**
+that runs `backup_broker.yaml` and `backup_message_vpn.yaml`.
+
+- The SSH management port of each broker (variable `BACKUP_SOLACE_BROKER_PORT`) must accept connections from the
+  runner. In this setup the CLI management access is publicly reachable. If you restrict it with an allow list,
+  you must allow the GitHub Actions runner addresses (or use a self-hosted runner inside the network).
+- `BACKUP_SOLACE_BROKER_HOSTNAME`, `BACKUP_SOLACE_BROKER_PORT`, `BACKUP_SOLACE_BROKER_USERNAME` and the secret
+  `BACKUP_SOLACE_BROKER_PASSWORD` must be set in the GitHub Environment of each broker.
+- The backup user only needs read access (a read-only CLI user). A restore needs a user that can change
+  configuration.
+- If the port is closed or unreachable the workflow fails (the output file is empty or missing, or the error file
+  is not empty), and no new backup is committed.
+
+The Terraform-based cloud backup does not use the CLI. It needs the Solace Cloud API and the S3 bucket instead.
+
 ---
 
 ## Repository structure
@@ -212,7 +311,7 @@ Runs `terraform init`, `plan` and `apply` using `AWS_ACCESS_KEY_ID` and `AWS_SEC
 | **Solace Cloud account** with Event Portal | Application promotion, Mission Control APIs |
 | **Event Portal environment set to Self-Managed** runtime configuration | Makes a promotion create a push job without pushing it |
 | **Solace Cloud API token** | All Solace Cloud REST calls (see [permissions](#solace-cloud-api-token-permissions)) |
-| **Event broker(s)** reachable from GitHub runners | Target of deployments; SSH (CLI) access for backups |
+| **Event broker(s)** reachable from GitHub runners | Target of deployments; the **SSH (CLI) management port must be open and reachable** from the runner for CLI backups and restores |
 | **Read-only SEMP/CLI user** on each broker | CLI backups |
 | **AWS account** with an S3 bucket | Terraform remote state |
 | **AWS IAM role trusted by GitHub OIDC** | Lets workflows reach S3 without long-lived keys |
