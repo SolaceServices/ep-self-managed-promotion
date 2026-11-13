@@ -1,0 +1,26 @@
+# Local Terraform working directory (providers, backend cache)
+.terraform/
+.terraform.lock.hcl
+
+# State files (they contain secrets in plain text)
+*.tfstate
+*.tfstate.*
+
+# Saved plans (can contain secrets too)
+tfplan
+*.tfplan
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Variable files with real values (keep example files)
+*.tfvars
+*.tfvars.json
+!example.tfvars
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
