@@ -13,20 +13,15 @@ on:
           - development
           - test
           # - production
-      # TODO: check for application version
       application_name:
         description: 'Application name in Event Portal'
         required: true
         default: 'EmployeeLifecycleManager'
         type: string
-      #application_domain_name:
-      #  description: 'Application Domain Name'
-      #  required: false
-      #  default: 'ajcr-Human Capital Management Events'
-      #  type: string
-      application_domain_id:
-        description: 'Application Domain ID'
-        default: '3j896ggpxon'
+      application_domain_name:
+        description: 'Application Domain Name'
+        type: string
+        default: 'Human Capital Management Events' # '3j896ggpxon'
         required: true
       max_retries:
         description: 'Max retries - Terraform Apply (Optional)'
@@ -99,14 +94,37 @@ jobs:
           # Your commands that require AWS credentials
           aws sts get-caller-identity
 
+      # --- Step 1: Get the Application Domain ID ---
+      - name: Get Application Domain ID
+        id: get_app_domain_id
+        run: |
+          RESPONSE=$(curl -s -X GET \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applicationDomains?pageSize=20&pageNumber=1&name=${{ inputs.application_domain_name }}" \
+            -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
+            -H "Content-Type: application/json")
+          #
+          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
+            echo "Application Domain Name: ${{ inputs.application_domain_name  }} does not match any existing App Domain, aborting"
+            exit 2
+          fi
+          #
+          APP_DOMAIN_ID=$(echo $RESPONSE | jq -r '.data[0].id')
+          echo "app_domain_id=$APP_DOMAIN_ID" >> $GITHUB_OUTPUT          
+
       # --- Step 1: Get the Application ID ---
       - name: Get Application ID
         id: get_app_id
         run: |
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=${{ inputs.application_name }}&applicationDomainId=${{ inputs.application_domain_id }}" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=${{ inputs.application_name }}&applicationDomainId=${{ steps.get_app_domain_id.outputs.app_domain_id }}" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
+          #
+          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
+            echo "Application Name: ${{ inputs.application_name  }} does not match any existing Application in Application Domain: ${{ inputs.application_domain_name  }} , aborting"
+            exit 2
+          fi
+          #
           APP_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "app_id=$APP_ID" >> $GITHUB_OUTPUT
 
