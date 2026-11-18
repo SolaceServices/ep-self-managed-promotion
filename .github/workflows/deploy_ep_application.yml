@@ -241,11 +241,12 @@ jobs:
             -d '{"status": "in_progress"}'
           #
           # Plan + apply, retrying up to MAX_RETRIES times after the first attempt.
-          # When all attempts fail:
-          #   - if a backup of the previous config exists, roll back: the new file is renamed to
-          #     application_config.failed, the backup is restored as application_config.tf and applied.
+          # On EVERY failed attempt:
+          #   - if a backup of the previous config exists, roll back first: the new file is renamed
+          #     to application_config.failed, the backup is restored as application_config.tf and
+          #     applied. If more attempts remain, the new file is put back and we try again.
           #   - if there is no backup (first deployment), fall back to terraform destroy.
-          # The step fails whenever all attempts are exhausted.
+          # The step fails when all attempts are exhausted.
           if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
             echo "::error::max_retries must be a non-negative integer, got '$MAX_RETRIES'"
             exit 1
@@ -265,33 +266,32 @@ jobs:
             echo "::endgroup::"
             echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1))"
             #
-            if [ "$attempt" -ge "$MAX_RETRIES" ]; then
-              echo "::error::Terraform apply failed after $((attempt + 1)) attempt(s) (max retries: $MAX_RETRIES)"
-              if [ -f application_config.backup ]; then
-                echo "Rolling back to the previous configuration"
-                mv application_config.tf application_config.failed
-                mv application_config.backup application_config.tf
-                if terraform plan -input=false -out=tfplan_rollback && \
-                   terraform apply -input=false -auto-approve tfplan_rollback; then
-                  echo "::warning::Rollback to the previous configuration succeeded"
-                else
-                  echo "::error::Rollback to the previous configuration failed"
-                fi
+            if [ -f application_config.backup ]; then
+              echo "Rolling back to the previous configuration"
+              mv application_config.tf application_config.failed
+              cp application_config.backup application_config.tf
+              if terraform plan -input=false -out=tfplan_rollback && \
+                 terraform apply -input=false -auto-approve tfplan_rollback; then
+                echo "::warning::Rollback to the previous configuration succeeded"
               else
-                echo "No previous configuration to roll back to; running terraform destroy"
-                if ! terraform destroy -input=false -auto-approve; then
-                  echo "::error::terraform destroy failed"
-                fi
+                echo "::error::Rollback to the previous configuration failed, not retrying to avoid acting on a partial state"
+                exit 1
               fi
-              exit 1
-            fi
-            #
-            # Retry the new configuration. With no backup, clean up the partial state first.
-            if [ ! -f application_config.backup ]; then
+            else
+              echo "No previous configuration to roll back to; running terraform destroy"
               if ! terraform destroy -input=false -auto-approve; then
                 echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
                 exit 1
               fi
+            fi
+            #
+            if [ "$attempt" -ge "$MAX_RETRIES" ]; then
+              echo "::error::Terraform apply failed after $((attempt + 1)) attempt(s) (max retries: $MAX_RETRIES)"
+              exit 1
+            fi
+            # Put the new configuration back for the next attempt
+            if [ -f application_config.failed ]; then
+              mv application_config.failed application_config.tf
             fi
             attempt=$((attempt + 1))
             echo "Retrying ($attempt of $MAX_RETRIES)..."
