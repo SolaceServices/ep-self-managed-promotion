@@ -191,8 +191,14 @@ jobs:
            done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key) \(.value | @base64)"' <<< "$RESPONSE")
           #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
-          # delete the file
-          rm -f application_config.tf
+          # back up the current file (if any) so we can roll back on failure
+          rm -f application_config.backup application_config.failed
+          if [ -f application_config.tf ]; then
+            mv application_config.tf application_config.backup
+            echo "Backed up application_config.tf to application_config.backup"
+          else
+            echo "No existing application_config.tf, nothing to back up"
+          fi
           # create the new file
           echo "$HCL" >> application_config.tf        
           #
@@ -234,8 +240,12 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
           #
-          # Plan + apply. On failure: terraform destroy, then retry (up to MAX_RETRIES retries
-          # after the first attempt). The step fails when all retries are exhausted.
+          # Plan + apply, retrying up to MAX_RETRIES times after the first attempt.
+          # When all attempts fail:
+          #   - if a backup of the previous config exists, roll back: the new file is renamed to
+          #     application_config.failed, the backup is restored as application_config.tf and applied.
+          #   - if there is no backup (first deployment), fall back to terraform destroy.
+          # The step fails whenever all attempts are exhausted.
           if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
             echo "::error::max_retries must be a non-negative integer, got '$MAX_RETRIES'"
             exit 1
@@ -248,19 +258,40 @@ jobs:
                terraform apply -input=false -auto-approve tfplan; then
               echo "::endgroup::"
               echo "Terraform apply succeeded on attempt $((attempt + 1))"
+              # success: the backup is no longer needed
+              rm -f application_config.backup
               break
             fi
             echo "::endgroup::"
-            echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1)); running terraform destroy"
-            #
-            if ! terraform destroy -input=false -auto-approve; then
-              echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
-              exit 1
-            fi
+            echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1))"
             #
             if [ "$attempt" -ge "$MAX_RETRIES" ]; then
               echo "::error::Terraform apply failed after $((attempt + 1)) attempt(s) (max retries: $MAX_RETRIES)"
+              if [ -f application_config.backup ]; then
+                echo "Rolling back to the previous configuration"
+                mv application_config.tf application_config.failed
+                mv application_config.backup application_config.tf
+                if terraform plan -input=false -out=tfplan_rollback && \
+                   terraform apply -input=false -auto-approve tfplan_rollback; then
+                  echo "::warning::Rollback to the previous configuration succeeded"
+                else
+                  echo "::error::Rollback to the previous configuration failed"
+                fi
+              else
+                echo "No previous configuration to roll back to; running terraform destroy"
+                if ! terraform destroy -input=false -auto-approve; then
+                  echo "::error::terraform destroy failed"
+                fi
+              fi
               exit 1
+            fi
+            #
+            # Retry the new configuration. With no backup, clean up the partial state first.
+            if [ ! -f application_config.backup ]; then
+              if ! terraform destroy -input=false -auto-approve; then
+                echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
+                exit 1
+              fi
             fi
             attempt=$((attempt + 1))
             echo "Retrying ($attempt of $MAX_RETRIES)..."
