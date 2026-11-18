@@ -98,13 +98,14 @@ jobs:
       - name: Get Application Domain ID
         id: get_app_domain_id
         run: |
+          ENCODED=$(jq -rn --arg v "${{ inputs.application_domain_name }}" '$v|@uri')
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/applicationDomains?pageSize=20&pageNumber=1&name=${{ inputs.application_domain_name }}" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applicationDomains?pageSize=20&pageNumber=1&name=$ENCODED" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           #
           if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
-            echo "Application Domain Name: ${{ inputs.application_domain_name  }} does not match any existing App Domain, aborting"
+            echo "Application Domain Name: ${{ inputs.application_domain_name }} does not match any existing App Domain, aborting"
             exit 2
           fi
           #
@@ -115,8 +116,9 @@ jobs:
       - name: Get Application ID
         id: get_app_id
         run: |
+          ENCODED=$(jq -rn --arg v "${{ inputs.application_name }}" '$v|@uri')
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=${{ inputs.application_name }}&applicationDomainId=${{ steps.get_app_domain_id.outputs.app_domain_id }}" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=$ENCODED&applicationDomainId=${{ steps.get_app_domain_id.outputs.app_domain_id }}" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
           #
