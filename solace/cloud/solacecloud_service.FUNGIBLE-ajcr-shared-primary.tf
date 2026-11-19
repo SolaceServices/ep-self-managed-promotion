@@ -1,5 +1,5 @@
-resource "solacecloud_service" "ajcr-sandbox-primary" {
-  name                 = "ajcr-sandbox-primary"
+resource "solacecloud_service" "FUNGIBLE-ajcr-shared-primary" {
+  name                 = "FUNGIBLE-ajcr-shared-primary"
   datacenter_id        = "eks-us-east-1a"
   service_class_id     = "ENTERPRISE_1K_HIGHAVAILABILITY"
   event_broker_version = "10.26.0.9219-22"
@@ -13,12 +13,12 @@ resource "solacecloud_service" "ajcr-sandbox-primary" {
 }
 
 import {
-  to = solacecloud_service.ajcr-sandbox-primary
+  to = solacecloud_service.FUNGIBLE-ajcr-shared-primary
   id = "ud3hsbx4h1j"
 }
 
-resource "solacecloud_connection_endpoint" "ajcr-sandbox-primary_Public_Endpoint" {
-  service_id  = solacecloud_service.ajcr-sandbox-primary.id
+resource "solacecloud_connection_endpoint" "FUNGIBLE-ajcr-shared-primary_Public_Endpoint" {
+  service_id  = solacecloud_service.FUNGIBLE-ajcr-shared-primary.id
   access_type = "PUBLIC"
   name        = "Public Endpoint"
 
@@ -51,17 +51,17 @@ resource "solacecloud_connection_endpoint" "ajcr-sandbox-primary_Public_Endpoint
 }
 
 import {
-  to = solacecloud_connection_endpoint.ajcr-sandbox-primary_Public_Endpoint
+  to = solacecloud_connection_endpoint.FUNGIBLE-ajcr-shared-primary_Public_Endpoint
   id = "ud3hsbx4h1j/connectionEndpoints/5x269hdhwlt"
 }
 
-resource "solacecloud_connection_endpoint_dns_name" "ajcr-sandbox-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud" {
-  service_id             = solacecloud_service.ajcr-sandbox-primary.id
-  connection_endpoint_id = solacecloud_connection_endpoint.ajcr-sandbox-primary_Public_Endpoint.id
+resource "solacecloud_connection_endpoint_dns_name" "FUNGIBLE-ajcr-shared-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud" {
+  service_id             = solacecloud_service.FUNGIBLE-ajcr-shared-primary.id
+  connection_endpoint_id = solacecloud_connection_endpoint.FUNGIBLE-ajcr-shared-primary_Public_Endpoint.id
   dns_name               = "ajcr-sandbox01.messaging.solace.cloud"
 }
 
 import {
-  to = solacecloud_connection_endpoint_dns_name.ajcr-sandbox-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud
+  to = solacecloud_connection_endpoint_dns_name.FUNGIBLE-ajcr-shared-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud
   id = "ud3hsbx4h1j/5x269hdhwlt/ajcr-sandbox01.messaging.solace.cloud"
 }

@@ -1,5 +1,5 @@
-resource "solacecloud_service" "AJCR_sandbox_backup" {
-  name                 = "AJCR_sandbox_backup"
+resource "solacecloud_service" "FUNGIBLE-ajcr-test-backup" {
+  name                 = "FUNGIBLE-ajcr-test-backup"
   datacenter_id        = "aks-eastus"
   service_class_id     = "ENTERPRISE_250_HIGHAVAILABILITY"
   event_broker_version = "10.26.0.9219-22"
@@ -13,12 +13,12 @@ resource "solacecloud_service" "AJCR_sandbox_backup" {
 }
 
 import {
-  to = solacecloud_service.AJCR_sandbox_backup
+  to = solacecloud_service.FUNGIBLE-ajcr-test-backup
   id = "fbvqj8rqqtu"
 }
 
-resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Public_Endpoint" {
-  service_id  = solacecloud_service.AJCR_sandbox_backup.id
+resource "solacecloud_connection_endpoint" "FUNGIBLE-ajcr-test-backup_Public_Endpoint" {
+  service_id  = solacecloud_service.FUNGIBLE-ajcr-test-backup.id
   access_type = "PUBLIC"
   name        = "Public Endpoint"
 
@@ -51,17 +51,17 @@ resource "solacecloud_connection_endpoint" "AJCR_sandbox_backup_Public_Endpoint"
 }
 
 import {
-  to = solacecloud_connection_endpoint.AJCR_sandbox_backup_Public_Endpoint
+  to = solacecloud_connection_endpoint.FUNGIBLE-ajcr-test-backup_Public_Endpoint
   id = "fbvqj8rqqtu/connectionEndpoints/imwxavuxc2g"
 }
 
-resource "solacecloud_connection_endpoint_dns_name" "AJCR_sandbox_backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud" {
-  service_id             = solacecloud_service.AJCR_sandbox_backup.id
-  connection_endpoint_id = solacecloud_connection_endpoint.AJCR_sandbox_backup_Public_Endpoint.id
+resource "solacecloud_connection_endpoint_dns_name" "FUNGIBLE-ajcr-test-backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud" {
+  service_id             = solacecloud_service.FUNGIBLE-ajcr-test-backup.id
+  connection_endpoint_id = solacecloud_connection_endpoint.FUNGIBLE-ajcr-test-backup_Public_Endpoint.id
   dns_name               = "ajcr-sandbox-backup.messaging.solace.cloud"
 }
 
 import {
-  to = solacecloud_connection_endpoint_dns_name.AJCR_sandbox_backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud
+  to = solacecloud_connection_endpoint_dns_name.FUNGIBLE-ajcr-test-backup_Public_Endpoint_dns_ajcr-sandbox-backup_messaging_solace_cloud
   id = "fbvqj8rqqtu/imwxavuxc2g/ajcr-sandbox-backup.messaging.solace.cloud"
 }

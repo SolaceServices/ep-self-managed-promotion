@@ -13,20 +13,15 @@ on:
           - development
           - test
           # - production
-      # TODO: check for application version
       application_name:
         description: 'Application name in Event Portal'
         required: true
         default: 'EmployeeLifecycleManager'
         type: string
-      #application_domain_name:
-      #  description: 'Application Domain Name'
-      #  required: false
-      #  default: 'ajcr-Human Capital Management Events'
-      #  type: string
-      application_domain_id:
-        description: 'Application Domain ID'
-        default: '3j896ggpxon'
+      application_domain_name:
+        description: 'Application Domain Name'
+        type: string
+        default: 'Human Capital Management Events' # '3j896ggpxon'
         required: true
       max_retries:
         description: 'Max retries - Terraform Apply (Optional)'
@@ -99,14 +94,39 @@ jobs:
           # Your commands that require AWS credentials
           aws sts get-caller-identity
 
+      # --- Step 1: Get the Application Domain ID ---
+      - name: Get Application Domain ID
+        id: get_app_domain_id
+        run: |
+          ENCODED=$(jq -rn --arg v "${{ inputs.application_domain_name }}" '$v|@uri')
+          RESPONSE=$(curl -s -X GET \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applicationDomains?pageSize=20&pageNumber=1&name=$ENCODED" \
+            -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
+            -H "Content-Type: application/json")
+          #
+          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
+            echo "Application Domain Name: ${{ inputs.application_domain_name }} does not match any existing App Domain, aborting"
+            exit 2
+          fi
+          #
+          APP_DOMAIN_ID=$(echo $RESPONSE | jq -r '.data[0].id')
+          echo "app_domain_id=$APP_DOMAIN_ID" >> $GITHUB_OUTPUT          
+
       # --- Step 1: Get the Application ID ---
       - name: Get Application ID
         id: get_app_id
         run: |
+          ENCODED=$(jq -rn --arg v "${{ inputs.application_name }}" '$v|@uri')
           RESPONSE=$(curl -s -X GET \
-            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=${{ inputs.application_name }}&applicationDomainId=${{ inputs.application_domain_id }}" \
+            "${{ env.SOLACE_CLOUD_API_BASE }}/applications?name=$ENCODED&applicationDomainId=${{ steps.get_app_domain_id.outputs.app_domain_id }}" \
             -H "Authorization: Bearer ${{ env.SOLACE_CLOUD_API_TOKEN }}" \
             -H "Content-Type: application/json")
+          #
+          if jq -e '.data | length == 0' <<< "$RESPONSE" > /dev/null; then
+            echo "Application Name: ${{ inputs.application_name  }} does not match any existing Application in Application Domain: ${{ inputs.application_domain_name  }} , aborting"
+            exit 2
+          fi
+          #
           APP_ID=$(echo $RESPONSE | jq -r '.data[0].id')
           echo "app_id=$APP_ID" >> $GITHUB_OUTPUT
 
@@ -171,8 +191,14 @@ jobs:
            done < <(jq -r '.data.environmentVariables | to_entries[] | "\(.key) \(.value | @base64)"' <<< "$RESPONSE")
           #
           HCL=$(echo $RESPONSE | jq -r '.data.hclConfigurations')
-          # delete the file
-          rm -f application_config.tf
+          # back up the current file (if any) so we can roll back on failure
+          rm -f application_config.backup application_config.failed
+          if [ -f application_config.tf ]; then
+            mv application_config.tf application_config.backup
+            echo "Backed up application_config.tf to application_config.backup"
+          else
+            echo "No existing application_config.tf, nothing to back up"
+          fi
           # create the new file
           echo "$HCL" >> application_config.tf        
           #
@@ -214,8 +240,13 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status": "in_progress"}'
           #
-          # Plan + apply. On failure: terraform destroy, then retry (up to MAX_RETRIES retries
-          # after the first attempt). The step fails when all retries are exhausted.
+          # Plan + apply, retrying up to MAX_RETRIES times after the first attempt.
+          # On EVERY failed attempt:
+          #   - if a backup of the previous config exists, roll back first: the new file is renamed
+          #     to application_config.failed, the backup is restored as application_config.tf and
+          #     applied. If more attempts remain, the new file is put back and we try again.
+          #   - if there is no backup (first deployment), fall back to terraform destroy.
+          # The step fails when all attempts are exhausted.
           if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]]; then
             echo "::error::max_retries must be a non-negative integer, got '$MAX_RETRIES'"
             exit 1
@@ -228,19 +259,39 @@ jobs:
                terraform apply -input=false -auto-approve tfplan; then
               echo "::endgroup::"
               echo "Terraform apply succeeded on attempt $((attempt + 1))"
+              # success: the backup is no longer needed
+              rm -f application_config.backup
               break
             fi
             echo "::endgroup::"
-            echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1)); running terraform destroy"
+            echo "::warning::Terraform plan/apply failed on attempt $((attempt + 1))"
             #
-            if ! terraform destroy -input=false -auto-approve; then
-              echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
-              exit 1
+            if [ -f application_config.backup ]; then
+              echo "Rolling back to the previous configuration"
+              mv application_config.tf application_config.failed
+              cp application_config.backup application_config.tf
+              if terraform plan -input=false -out=tfplan_rollback && \
+                 terraform apply -input=false -auto-approve tfplan_rollback; then
+                echo "::warning::Rollback to the previous configuration succeeded"
+              else
+                echo "::error::Rollback to the previous configuration failed, not retrying to avoid acting on a partial state"
+                exit 1
+              fi
+            else
+              echo "No previous configuration to roll back to; running terraform destroy"
+              if ! terraform destroy -input=false -auto-approve; then
+                echo "::error::terraform destroy failed, not retrying to avoid acting on a partial state"
+                exit 1
+              fi
             fi
             #
             if [ "$attempt" -ge "$MAX_RETRIES" ]; then
               echo "::error::Terraform apply failed after $((attempt + 1)) attempt(s) (max retries: $MAX_RETRIES)"
               exit 1
+            fi
+            # Put the new configuration back for the next attempt
+            if [ -f application_config.failed ]; then
+              mv application_config.failed application_config.tf
             fi
             attempt=$((attempt + 1))
             echo "Retrying ($attempt of $MAX_RETRIES)..."

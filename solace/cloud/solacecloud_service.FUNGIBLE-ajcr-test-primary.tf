@@ -1,5 +1,5 @@
-resource "solacecloud_service" "AJCR_sandbox_primary" {
-  name                 = "AJCR_sandbox_primary"
+resource "solacecloud_service" "FUNGIBLE-ajcr-test-primary" {
+  name                 = "FUNGIBLE-ajcr-test-primary"
   datacenter_id        = "eks-ca-central-1a"
   service_class_id     = "ENTERPRISE_250_HIGHAVAILABILITY"
   event_broker_version = "10.26.0.9219-22"
@@ -14,12 +14,12 @@ resource "solacecloud_service" "AJCR_sandbox_primary" {
 }
 
 import {
-  to = solacecloud_service.AJCR_sandbox_primary
+  to = solacecloud_service.FUNGIBLE-ajcr-test-primary
   id = "3p6muksahbi"
 }
 
-resource "solacecloud_connection_endpoint" "AJCR_sandbox_primary_Default_Public" {
-  service_id  = solacecloud_service.AJCR_sandbox_primary.id
+resource "solacecloud_connection_endpoint" "FUNGIBLE-ajcr-test-primary_Default_Public" {
+  service_id  = solacecloud_service.FUNGIBLE-ajcr-test-primary.id
   access_type = "PUBLIC"
   name        = "Default Public"
 
@@ -52,17 +52,17 @@ resource "solacecloud_connection_endpoint" "AJCR_sandbox_primary_Default_Public"
 }
 
 import {
-  to = solacecloud_connection_endpoint.AJCR_sandbox_primary_Default_Public
+  to = solacecloud_connection_endpoint.FUNGIBLE-ajcr-test-primary_Default_Public
   id = "3p6muksahbi/connectionEndpoints/ptx652y6657"
 }
 
-resource "solacecloud_connection_endpoint_dns_name" "AJCR_sandbox_primary_Default_Public_dns_ajcr-sandbox-primary_messaging_solace_cloud" {
-  service_id             = solacecloud_service.AJCR_sandbox_primary.id
-  connection_endpoint_id = solacecloud_connection_endpoint.AJCR_sandbox_primary_Default_Public.id
+resource "solacecloud_connection_endpoint_dns_name" "FUNGIBLE-ajcr-test-primary_Default_Public_dns_ajcr-sandbox-primary_messaging_solace_cloud" {
+  service_id             = solacecloud_service.FUNGIBLE-ajcr-test-primary.id
+  connection_endpoint_id = solacecloud_connection_endpoint.FUNGIBLE-ajcr-test-primary_Default_Public.id
   dns_name               = "ajcr-sandbox-primary.messaging.solace.cloud"
 }
 
 import {
-  to = solacecloud_connection_endpoint_dns_name.AJCR_sandbox_primary_Default_Public_dns_ajcr-sandbox-primary_messaging_solace_cloud
+  to = solacecloud_connection_endpoint_dns_name.FUNGIBLE-ajcr-test-primary_Default_Public_dns_ajcr-sandbox-primary_messaging_solace_cloud
   id = "3p6muksahbi/ptx652y6657/ajcr-sandbox-primary.messaging.solace.cloud"
 }
