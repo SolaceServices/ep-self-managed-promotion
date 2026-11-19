@@ -1,0 +1,67 @@
+resource "solacecloud_service" "FUNGIBLE-ajcr-shared-primary" {
+  name                 = "FUNGIBLE-ajcr-shared-primary"
+  datacenter_id        = "eks-us-east-1a"
+  service_class_id     = "ENTERPRISE_1K_HIGHAVAILABILITY"
+  event_broker_version = "10.26.0.9219-22"
+  message_vpn_name     = "sandbox"
+  max_spool_usage      = 50
+  locked               = false
+  owned_by             = "9uz252oc2mi"
+  dmr_enabled          = false
+  mate_link_encryption = true
+  environment_id       = "yt7nhpcyoyc"
+}
+
+import {
+  to = solacecloud_service.FUNGIBLE-ajcr-shared-primary
+  id = "ud3hsbx4h1j"
+}
+
+resource "solacecloud_connection_endpoint" "FUNGIBLE-ajcr-shared-primary_Public_Endpoint" {
+  service_id  = solacecloud_service.FUNGIBLE-ajcr-shared-primary.id
+  access_type = "PUBLIC"
+  name        = "Public Endpoint"
+
+  ports = {
+    management_tls = {
+      port = 943
+    }
+    ssh_tls = {
+      port = 2222
+    }
+    smf_tls = {
+      port = 55443
+    }
+    mqtt_tls = {
+      port = 8883
+    }
+    mqtt_websocket_tls = {
+      port = 8443
+    }
+    amqp_tls = {
+      port = 5671
+    }
+    rest_incoming_tls = {
+      port = 9443
+    }
+    web_tls = {
+      port = 443
+    }
+  }
+}
+
+import {
+  to = solacecloud_connection_endpoint.FUNGIBLE-ajcr-shared-primary_Public_Endpoint
+  id = "ud3hsbx4h1j/connectionEndpoints/5x269hdhwlt"
+}
+
+resource "solacecloud_connection_endpoint_dns_name" "FUNGIBLE-ajcr-shared-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud" {
+  service_id             = solacecloud_service.FUNGIBLE-ajcr-shared-primary.id
+  connection_endpoint_id = solacecloud_connection_endpoint.FUNGIBLE-ajcr-shared-primary_Public_Endpoint.id
+  dns_name               = "ajcr-sandbox01.messaging.solace.cloud"
+}
+
+import {
+  to = solacecloud_connection_endpoint_dns_name.FUNGIBLE-ajcr-shared-primary_Public_Endpoint_dns_ajcr-sandbox01_messaging_solace_cloud
+  id = "ud3hsbx4h1j/5x269hdhwlt/ajcr-sandbox01.messaging.solace.cloud"
+}
