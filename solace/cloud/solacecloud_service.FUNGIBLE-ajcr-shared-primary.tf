@@ -4,7 +4,7 @@ resource "solacecloud_service" "FUNGIBLE-ajcr-shared-primary" {
   service_class_id     = "ENTERPRISE_1K_HIGHAVAILABILITY"
   event_broker_version = "10.26.0.9219-22"
   message_vpn_name     = "sandbox"
-  max_spool_usage      = 50
+  max_spool_usage      = 200
   locked               = false
   owned_by             = "9uz252oc2mi"
   dmr_enabled          = false
